@@ -192,12 +192,10 @@ export function EnhancedHomeDashboard({ employee }: { employee: any }) {
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        isConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                        <span className={`w-2 h-2 rounded-full mr-2 ${
-                            isConnected ? 'bg-green-500' : 'bg-yellow-500'
-                        }`}></span>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${isConnected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                        <span className={`w-2 h-2 rounded-full mr-2 ${isConnected ? 'bg-green-500' : 'bg-yellow-500'
+                            }`}></span>
                         {isConnected ? 'Live' : 'Connecting...'}
                     </span>
                 </div>
