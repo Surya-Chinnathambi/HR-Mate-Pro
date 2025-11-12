@@ -1,15 +1,22 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
+export type WebSocketStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
+export interface WebSocketMessage {
+    type: string;
+    data: any;
+    timestamp?: string;
+}
+
 interface WebSocketState {
+    status: WebSocketStatus;
     isConnected: boolean;
-    isAuthenticated: boolean;
     connectionError: string | null;
-    lastMessage: any;
+    lastMessage: WebSocketMessage | null;
 }
 
 interface UseWebSocketOptions {
@@ -17,43 +24,46 @@ interface UseWebSocketOptions {
     autoConnect?: boolean;
     reconnectionAttempts?: number;
     reconnectionDelay?: number;
-}
-
-interface WebSocketMessage {
-    event: string;
-    data: any;
-    timestamp: string;
+    onMessage?: (message: WebSocketMessage) => void;
+    onConnect?: () => void;
+    onDisconnect?: () => void;
+    onError?: (error: Event) => void;
 }
 
 // ============================================================================
-// CUSTOM HOOK
+// CUSTOM HOOK - Native WebSocket (not Socket.IO)
 // ============================================================================
 
 export const useWebSocket = (options: UseWebSocketOptions = {}) => {
     const {
-        url = import.meta.env.VITE_WS_URL || 'http://localhost:8000/ws',
+        url = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws',
         autoConnect = true,
         reconnectionAttempts = 5,
         reconnectionDelay = 3000,
+        onMessage,
+        onConnect,
+        onDisconnect,
+        onError,
     } = options;
 
     const [state, setState] = useState<WebSocketState>({
+        status: 'disconnected',
         isConnected: false,
-        isAuthenticated: false,
         connectionError: null,
         lastMessage: null,
     });
 
-    const socketRef = useRef<Socket | null>(null);
-    const eventHandlersRef = useRef<Map<string, Function[]>>(new Map());
+    const wsRef = useRef<WebSocket | null>(null);
     const reconnectAttemptsRef = useRef(0);
+    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // ============================================================================
     // CONNECTION MANAGEMENT
     // ============================================================================
 
     const connect = useCallback(() => {
-        if (socketRef.current?.connected) {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
             console.log('WebSocket already connected');
             return;
         }
@@ -62,170 +72,161 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         if (!token) {
             setState((prev) => ({
                 ...prev,
+                status: 'error',
                 connectionError: 'No authentication token found',
             }));
             return;
         }
 
-        console.log('Connecting to WebSocket:', url);
+        console.log('🔌 Connecting to WebSocket:', url);
+        setState(prev => ({ ...prev, status: 'connecting' }));
 
-        socketRef.current = io(url, {
-            auth: {
-                token: `Bearer ${token}`,
-            },
-            transports: ['websocket', 'polling'],
-            reconnectionAttempts,
-            reconnectionDelay,
-        });
+        // Add token as query parameter for authentication
+        const wsUrl = `${url}?token=${encodeURIComponent(token)}`;
 
-        const socket = socketRef.current;
+        try {
+            wsRef.current = new WebSocket(wsUrl);
+            const ws = wsRef.current;
 
-        // Connection events
-        socket.on('connect', () => {
-            console.log('✅ WebSocket connected:', socket.id);
+            ws.onopen = () => {
+                console.log('✅ WebSocket connected');
+                setState((prev) => ({
+                    ...prev,
+                    status: 'connected',
+                    isConnected: true,
+                    connectionError: null,
+                }));
+                reconnectAttemptsRef.current = 0;
+
+                // Start heartbeat
+                if (heartbeatIntervalRef.current) {
+                    clearInterval(heartbeatIntervalRef.current);
+                }
+                heartbeatIntervalRef.current = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 30000); // Ping every 30 seconds
+
+                onConnect?.();
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message: WebSocketMessage = JSON.parse(event.data);
+                    console.log('📨 WebSocket message:', message);
+
+                    setState((prev) => ({
+                        ...prev,
+                        lastMessage: message,
+                    }));
+
+                    // Handle pong responses
+                    if (message.type === 'pong') {
+                        return;
+                    }
+
+                    onMessage?.(message);
+                } catch (error) {
+                    console.error('Failed to parse WebSocket message:', error);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('❌ WebSocket error:', error);
+                setState((prev) => ({
+                    ...prev,
+                    status: 'error',
+                    connectionError: 'Connection error',
+                }));
+                onError?.(error);
+            };
+
+            ws.onclose = () => {
+                console.log('🔌 WebSocket disconnected');
+                setState((prev) => ({
+                    ...prev,
+                    status: 'disconnected',
+                    isConnected: false,
+                }));
+
+                // Clear heartbeat
+                if (heartbeatIntervalRef.current) {
+                    clearInterval(heartbeatIntervalRef.current);
+                    heartbeatIntervalRef.current = null;
+                }
+
+                onDisconnect?.();
+
+                // Attempt reconnection
+                if (reconnectAttemptsRef.current < reconnectionAttempts) {
+                    reconnectAttemptsRef.current += 1;
+                    console.log(`Reconnecting... (${reconnectAttemptsRef.current}/${reconnectionAttempts})`);
+
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        connect();
+                    }, reconnectionDelay);
+                } else {
+                    console.error('Max reconnection attempts reached');
+                    setState((prev) => ({
+                        ...prev,
+                        status: 'error',
+                        connectionError: 'Max reconnection attempts reached',
+                    }));
+                }
+            };
+        } catch (error) {
+            console.error('Failed to create WebSocket:', error);
             setState((prev) => ({
                 ...prev,
-                isConnected: true,
-                connectionError: null,
+                status: 'error',
+                connectionError: 'Failed to create connection',
             }));
-            reconnectAttemptsRef.current = 0;
-
-            // Auto-authenticate with user_id from token
-            // In production, decode JWT to get user_id
-            const userId = parseInt(localStorage.getItem('user_id') || '0');
-            if (userId) {
-                socket.emit('authenticate', { user_id: userId, token });
-            }
-        });
-
-        socket.on('connected', (data: any) => {
-            console.log('Connected event:', data);
-        });
-
-        socket.on('authenticated', (data: any) => {
-            console.log('✅ WebSocket authenticated:', data);
-            setState((prev) => ({
-                ...prev,
-                isAuthenticated: true,
-            }));
-        });
-
-        socket.on('disconnect', (reason: string) => {
-            console.log('❌ WebSocket disconnected:', reason);
-            setState((prev) => ({
-                ...prev,
-                isConnected: false,
-                isAuthenticated: false,
-            }));
-
-            // Auto-reconnect if disconnected by server
-            if (reason === 'io server disconnect') {
-                socket.connect();
-            }
-        });
-
-        socket.on('connect_error', (error: Error) => {
-            console.error('WebSocket connection error:', error);
-            setState((prev) => ({
-                ...prev,
-                connectionError: error.message,
-            }));
-
-            reconnectAttemptsRef.current += 1;
-            if (reconnectAttemptsRef.current >= reconnectionAttempts) {
-                console.error('Max reconnection attempts reached');
-                socket.disconnect();
-            }
-        });
-
-        socket.on('error', (data: any) => {
-            console.error('WebSocket error:', data);
-            setState((prev) => ({
-                ...prev,
-                connectionError: data.message || 'Unknown error',
-            }));
-        });
-
-        socket.on('pong', () => {
-            // Heartbeat response
-            console.log('Pong received');
-        });
-
-        // Register all event handlers
-        eventHandlersRef.current.forEach((handlers, event) => {
-            handlers.forEach((handler) => {
-                socket.on(event, handler as (...args: any[]) => void);
-            });
-        });
-    }, [url, reconnectionAttempts, reconnectionDelay]);
+        }
+    }, [url, reconnectionAttempts, reconnectionDelay, onMessage, onConnect, onDisconnect, onError]);
 
     const disconnect = useCallback(() => {
-        if (socketRef.current) {
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+        }
+
+        if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current);
+            heartbeatIntervalRef.current = null;
+        }
+
+        if (wsRef.current) {
             console.log('Disconnecting WebSocket');
-            socketRef.current.disconnect();
-            socketRef.current = null;
-            setState((prev) => ({
-                ...prev,
-                isConnected: false,
-                isAuthenticated: false,
-            }));
+            wsRef.current.close();
+            wsRef.current = null;
         }
+
+        setState((prev) => ({
+            ...prev,
+            status: 'disconnected',
+            isConnected: false,
+        }));
+        reconnectAttemptsRef.current = 0;
     }, []);
 
     // ============================================================================
-    // EVENT HANDLERS
+    // MESSAGE SENDING
     // ============================================================================
 
-    const on = useCallback((event: string, handler: Function) => {
-        // Store handler for future reconnections
-        if (!eventHandlersRef.current.has(event)) {
-            eventHandlersRef.current.set(event, []);
-        }
-        eventHandlersRef.current.get(event)?.push(handler);
-
-        // Register with current socket if connected
-        if (socketRef.current) {
-            socketRef.current.on(event, handler as any);
-        }
-
-        // Return cleanup function
-        return () => {
-            const handlers = eventHandlersRef.current.get(event);
-            if (handlers) {
-                const index = handlers.indexOf(handler);
-                if (index > -1) {
-                    handlers.splice(index, 1);
-                }
-            }
-            if (socketRef.current) {
-                socketRef.current.off(event, handler as any);
-            }
-        };
-    }, []);
-
-    const emit = useCallback((event: string, data?: any) => {
-        if (socketRef.current?.connected) {
-            socketRef.current.emit(event, data);
+    const sendMessage = useCallback((message: any) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify(message));
+            return true;
         } else {
-            console.warn('Cannot emit, WebSocket not connected');
+            console.warn('WebSocket not connected. Message not sent:', message);
+            return false;
         }
     }, []);
-
-    // ============================================================================
-    // CONVENIENCE METHODS
-    // ============================================================================
-
-    const subscribeToTeam = useCallback((teamId: number) => {
-        emit('subscribe_to_team', { team_id: teamId });
-    }, [emit]);
-
-    const subscribeToDepartment = useCallback((department: string) => {
-        emit('subscribe_to_team', { department });
-    }, [emit]);
 
     const ping = useCallback(() => {
-        emit('ping');
-    }, [emit]);
+        sendMessage({ type: 'ping' });
+    }, [sendMessage]);
 
     // ============================================================================
     // LIFECYCLE
@@ -240,18 +241,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         return () => {
             disconnect();
         };
-    }, [autoConnect, connect, disconnect]);
-
-    // Heartbeat ping every 30 seconds
-    useEffect(() => {
-        if (state.isConnected) {
-            const interval = setInterval(() => {
-                ping();
-            }, 30000);
-
-            return () => clearInterval(interval);
-        }
-    }, [state.isConnected, ping]);
+    }, [autoConnect]); // Only run on mount/unmount, not when connect/disconnect changes
 
     // ============================================================================
     // RETURN
@@ -259,13 +249,10 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
 
     return {
         ...state,
-        socket: socketRef.current,
+        ws: wsRef.current,
         connect,
         disconnect,
-        on,
-        emit,
-        subscribeToTeam,
-        subscribeToDepartment,
+        sendMessage,
         ping,
     };
 };
@@ -274,61 +261,67 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
 // EVENT TYPE DEFINITIONS (for TypeScript autocomplete)
 // ============================================================================
 
-export type WebSocketEvent =
+export type WebSocketEventType =
     | 'new_notification'
-    | 'approval_updated'
+    | 'notification_created'
+    | 'notification_updated'
+    | 'notification_deleted'
+    | 'task_assigned'
     | 'task_updated'
     | 'task_status_changed'
-    | 'new_comment'
-    | 'workload_alert'
-    | 'test_message';
+    | 'leave_approved'
+    | 'leave_rejected'
+    | 'leave_cancelled'
+    | 'message_received'
+    | 'broadcast_received'
+    | 'approval_pending'
+    | 'approval_completed'
+    | 'attendance_checked_in'
+    | 'attendance_checked_out'
+    | 'expense_submitted'
+    | 'expense_approved'
+    | 'expense_rejected'
+    | 'performance_review_created'
+    | 'performance_feedback_received'
+    | 'ping'
+    | 'pong';
 
-export interface NewNotificationEvent {
-    notification_id: number;
+export interface TaskAssignedEvent {
+    task_id: number;
     title: string;
-    message: string;
-    type: string;
+    description: string;
+    assigned_to_employee_id: number;
+    assigned_by_employee_id: number;
     priority: string;
-    created_at: string;
+    due_date?: string;
 }
 
-export interface ApprovalUpdatedEvent {
-    approval_id: number;
-    status: string;
-    level: number;
-    approver_name: string;
-    comments: string;
-}
-
-export interface TaskUpdatedEvent {
-    task_id: number;
-    title: string;
-    status: string;
-    progress_percentage: number;
-    updated_by: string;
-}
-
-export interface TaskStatusChangedEvent {
-    task_id: number;
-    old_status: string;
-    new_status: string;
-    changed_by: string;
-    assignee_id: number;
-    assigner_id: number;
-}
-
-export interface NewCommentEvent {
-    comment_id: number;
-    task_id: number;
-    user_name: string;
-    comment_text: string;
-    created_at: string;
-}
-
-export interface WorkloadAlertEvent {
+export interface LeaveEvent {
+    leave_request_id: number;
     employee_id: number;
-    employee_name: string;
-    utilization_percent: number;
-    status: 'overloaded' | 'balanced' | 'available';
-    message: string;
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    days_count: number;
+    status: string;
+    comments?: string;
+}
+
+export interface MessageEvent {
+    message_id: number;
+    sender_employee_id: number;
+    sender_name: string;
+    subject: string;
+    body: string;
+    priority: string;
+}
+
+export interface BroadcastEvent {
+    broadcast_id: number;
+    title: string;
+    body: string;
+    sender_name: string;
+    sender_role: string;
+    priority: string;
+    target_scope: string;
 }
