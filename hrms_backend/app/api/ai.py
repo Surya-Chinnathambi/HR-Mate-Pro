@@ -461,6 +461,7 @@ async def ai_chat(
                         automated_action_result = await AttendanceAutomationService.clock_in(
                             db=session,
                             employee_id=employee.id,
+                            user_id=current_user.id,
                             user_lat=None,  # TODO: Get from frontend if available
                             user_lng=None,
                             device_info="AI Chatbot",
@@ -487,6 +488,7 @@ async def ai_chat(
                     automated_action_result = await AttendanceAutomationService.clock_out(
                         db=session,
                         employee_id=employee.id,
+                        user_id=current_user.id,
                         user_lat=None,
                         user_lng=None
                     )

@@ -203,14 +203,20 @@ class WFHAutomationService:
     async def submit_wfh_request(
         db: AsyncSession,
         employee_id: int,
+        user_id: int,
         wfh_date: date,
         reason: str,
         manager_id: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Submit WFH request with full validation and approval routing
+        Now includes inbox notifications, audit logging, and delivery status
         """
         from app.models import Employee, ApprovalRequest, RequestType, ApprovalLevel, ApprovalStatus
+        from app.models.workflow import AuditLog, AuditAction
+        from app.services.notification_delivery import NotificationDeliveryService
+        from sqlalchemy import text
+        import uuid
         
         # 1. Get employee
         stmt = select(Employee).where(Employee.id == employee_id)
@@ -270,51 +276,145 @@ class WFHAutomationService:
                 "existing_request_id": existing_request.id
             }
         
-        # 6. Create approval request
-        approval_request = ApprovalRequest(
-            request_type=RequestType.WFH,
-            requester_id=employee_id,
-            approver_id=manager_id,
-            approval_level=ApprovalLevel.MANAGER,
-            status=ApprovalStatus.PENDING,
-            metadata={
-                "date": wfh_date.isoformat(),
-                "day_name": wfh_date.strftime('%A'),
-                "reason": reason,
+        try:
+            # 6. Create approval request
+            approval_request = ApprovalRequest(
+                request_type=RequestType.WFH,
+                requester_id=employee_id,
+                approver_id=manager_id,
+                approval_level=ApprovalLevel.MANAGER,
+                status=ApprovalStatus.PENDING,
+                metadata={
+                    "date": wfh_date.isoformat(),
+                    "day_name": wfh_date.strftime('%A'),
+                    "reason": reason,
+                    "team_coverage": coverage,
+                    "eligibility_checks": eligibility
+                }
+            )
+            db.add(approval_request)
+            await db.flush()
+            
+            # 7. Create inbox notifications
+            inbox_ids = []
+            
+            # Notify employee (confirmation)
+            employee_inbox_ids = await NotificationDeliveryService.create_inbox_notification(
+                db=db,
+                recipient_employee_ids=[employee_id],
+                notification_type="wfh_request_submitted",
+                message_id=None,
+                entity_type="wfh_request",
+                entity_id=approval_request.id,
+                title=f"WFH Request Submitted for {wfh_date.strftime('%B %d, %Y')}",
+                body=f"Your WFH request for {wfh_date.strftime('%A, %B %d')} has been submitted for manager approval. Reason: {reason}",
+                metadata={
+                    "wfh_date": wfh_date.isoformat(),
+                    "reason": reason,
+                    "team_coverage": coverage,
+                    "status": "pending"
+                }
+            )
+            inbox_ids.extend(employee_inbox_ids)
+            
+            # Notify manager (approval request)
+            manager_inbox_ids = await NotificationDeliveryService.create_inbox_notification(
+                db=db,
+                recipient_employee_ids=[manager_id],
+                notification_type="wfh_request_pending",
+                message_id=None,
+                entity_type="wfh_request",
+                entity_id=approval_request.id,
+                title=f"WFH Approval Needed: {employee.first_name} {employee.last_name}",
+                body=f"{employee.first_name} {employee.last_name} requested WFH on {wfh_date.strftime('%A, %B %d')}. Reason: {reason}",
+                metadata={
+                    "employee_id": employee_id,
+                    "wfh_date": wfh_date.isoformat(),
+                    "reason": reason,
+                    "team_coverage": coverage,
+                    "requires_action": True
+                }
+            )
+            inbox_ids.extend(manager_inbox_ids)
+            
+            # 8. Audit log
+            audit_log = AuditLog(
+                user_id=user_id,
+                employee_id=employee_id,
+                action=AuditAction.CREATE,
+                entity_type="wfh_request",
+                entity_id=approval_request.id,
+                description=f"Submitted WFH request for {wfh_date.strftime('%B %d, %Y')}",
+                new_value={
+                    "wfh_date": wfh_date.isoformat(),
+                    "reason": reason,
+                    "manager_id": manager_id,
+                    "status": "pending"
+                },
+                success=True
+            )
+            db.add(audit_log)
+            
+            await db.commit()
+            await db.refresh(approval_request)
+            
+            # 9. Build delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=True,
+                inbox_created=len(inbox_ids) > 0,
+                event_emitted=True,
+                audit_logged=True,
+                event_channel="wfh_request_events",
+                inbox_ids=inbox_ids,
+                error=None
+            )
+            
+            # 10. Prepare response
+            return {
+                "success": True,
+                "message": "✅ WFH request submitted successfully!",
+                "request_id": approval_request.id,
+                "details": {
+                    "date": wfh_date.strftime('%B %d, %Y (%A)'),
+                    "reason": reason,
+                    "wfh_days_used_this_week": eligibility["wfh_days_used_this_week"],
+                    "wfh_days_remaining": eligibility["wfh_days_remaining"] - 1
+                },
                 "team_coverage": coverage,
-                "eligibility_checks": eligibility
+                "approval": {
+                    "status": "Pending Manager Approval",
+                    "approver": "Your Manager",
+                    "expected_response": "Within 24 hours",
+                    "requires_approval": True if not coverage["coverage_ok"] else "Optional (coverage ok)"
+                },
+                "next_steps": [
+                    "Your manager will be notified via email",
+                    "You'll receive notification when approved/rejected",
+                    "Calendar will be updated automatically upon approval",
+                    "Team members will be notified if approved"
+                ],
+                "warnings": eligibility["issues"] if eligibility["issues"] else None,
+                "delivery_status": delivery_status
             }
-        )
-        db.add(approval_request)
-        await db.commit()
-        await db.refresh(approval_request)
-        
-        # 7. Prepare response
-        return {
-            "success": True,
-            "message": "✅ WFH request submitted successfully!",
-            "request_id": approval_request.id,
-            "details": {
-                "date": wfh_date.strftime('%B %d, %Y (%A)'),
-                "reason": reason,
-                "wfh_days_used_this_week": eligibility["wfh_days_used_this_week"],
-                "wfh_days_remaining": eligibility["wfh_days_remaining"] - 1
-            },
-            "team_coverage": coverage,
-            "approval": {
-                "status": "Pending Manager Approval",
-                "approver": "Your Manager",
-                "expected_response": "Within 24 hours",
-                "requires_approval": True if not coverage["coverage_ok"] else "Optional (coverage ok)"
-            },
-            "next_steps": [
-                "Your manager will be notified via email",
-                "You'll receive notification when approved/rejected",
-                "Calendar will be updated automatically upon approval",
-                "Team members will be notified if approved"
-            ],
-            "warnings": eligibility["issues"] if eligibility["issues"] else None
-        }
+            
+        except Exception as e:
+            await db.rollback()
+            # Build error delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=False,
+                inbox_created=False,
+                event_emitted=False,
+                audit_logged=False,
+                event_channel=None,
+                inbox_ids=[],
+                error=str(e)
+            )
+            return {
+                "success": False,
+                "error": "wfh_request_failed",
+                "message": f"Failed to submit WFH request: {str(e)}",
+                "delivery_status": delivery_status
+            }
     
     @staticmethod
     async def get_wfh_summary(

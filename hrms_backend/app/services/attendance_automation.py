@@ -138,6 +138,7 @@ class AttendanceAutomationService:
     async def clock_in(
         db: AsyncSession,
         employee_id: int,
+        user_id: int,
         user_lat: Optional[float] = None,
         user_lng: Optional[float] = None,
         device_info: Optional[str] = None,
@@ -152,7 +153,13 @@ class AttendanceAutomationService:
         - Validation results (location, late arrival, etc.)
         - Notifications triggered
         - Summary of attendance
+        - delivery_status with inbox_notification and event emission
         """
+        from sqlalchemy import text
+        from app.models.workflow import AuditLog, AuditAction
+        from app.services.notification_delivery import NotificationDeliveryService
+        import uuid
+        
         now = datetime.now()
         today = now.date()
         
@@ -201,94 +208,208 @@ class AttendanceAutomationService:
             late_count_this_month += 1
         
         # 5. Create or update attendance record
-        if existing_attendance:
-            # Update existing record with check-in
-            existing_attendance.check_in = now.time()
-            existing_attendance.status = AttendanceStatus.PRESENT
-            existing_attendance.source = AttendanceSource.AI_CHATBOT
-            existing_attendance.device_info = device_info
-            existing_attendance.ip_address = ip_address
-            attendance_record = existing_attendance
-        else:
-            # Create new record
-            attendance_record = AttendanceDay(
-                employee_id=employee_id,
-                date=today,
-                check_in=now.time(),
-                status=AttendanceStatus.PRESENT,
-                source=AttendanceSource.AI_CHATBOT,
-                location_type="office" if location_valid else "remote",
-                device_info=device_info,
-                ip_address=ip_address
+        try:
+            if existing_attendance:
+                # Update existing record with check-in
+                existing_attendance.check_in = now.time()
+                existing_attendance.status = AttendanceStatus.PRESENT
+                existing_attendance.source = AttendanceSource.AI_CHATBOT
+                existing_attendance.device_info = device_info
+                existing_attendance.ip_address = ip_address
+                attendance_record = existing_attendance
+            else:
+                # Create new record
+                attendance_record = AttendanceDay(
+                    employee_id=employee_id,
+                    date=today,
+                    check_in=now.time(),
+                    status=AttendanceStatus.PRESENT,
+                    source=AttendanceSource.AI_CHATBOT,
+                    location_type="office" if location_valid else "remote",
+                    device_info=device_info,
+                    ip_address=ip_address
+                )
+                db.add(attendance_record)
+            
+            await db.flush()
+            
+            # 6. Create inbox notifications (self notification + manager notification if late)
+            inbox_ids = []
+            notification_title = f"✅ Clocked In at {now.strftime('%I:%M %p')}"
+            notification_body = f"Clocked in successfully on {today.isoformat()}"
+            
+            if is_late:
+                notification_body += f" (Late by {minutes_late} minutes)"
+            
+            # Notify employee
+            employee_inbox_ids = await NotificationDeliveryService.create_inbox_notification(
+                db=db,
+                recipient_employee_ids=[employee_id],
+                notification_type="attendance_clock_in",
+                message_id=None,
+                entity_type="attendance",
+                entity_id=attendance_record.id,
+                title=notification_title,
+                body=notification_body,
+                metadata={
+                    "check_in_time": now.isoformat(),
+                    "is_late": is_late,
+                    "minutes_late": minutes_late if is_late else 0,
+                    "location_valid": location_valid,
+                    "distance_from_office_meters": distance_from_office
+                }
             )
-            db.add(attendance_record)
-        
-        await db.commit()
-        await db.refresh(attendance_record)
-        
-        # 6. Prepare response with all notifications
-        response = {
-            "success": True,
-            "message": "✅ Clocked in successfully!",
-            "attendance_id": attendance_record.id,
-            "check_in_time": now.strftime('%I:%M %p'),
-            "date": today.isoformat(),
-            "status": attendance_record.status,
-            "validations": {
-                "location_verified": location_valid,
-                "distance_from_office_meters": distance_from_office if distance_from_office else None,
-                "is_late": is_late,
-                "minutes_late": minutes_late if is_late else 0
-            },
-            "notifications": [],
-            "summary": {
-                "late_arrivals_this_month": late_count_this_month,
-                "expected_clock_out": "06:00 PM",
-                "work_hours_target": 8
+            inbox_ids.extend(employee_inbox_ids)
+            
+            # Notify manager if late threshold exceeded
+            manager_notified = False
+            if late_count_this_month >= AttendanceAutomationService.LATE_ARRIVAL_THRESHOLD_COUNT:
+                # Fetch employee's manager
+                emp_stmt = select(Employee).where(Employee.id == employee_id)
+                emp_result = await db.execute(emp_stmt)
+                employee = emp_result.scalar_one_or_none()
+                
+                if employee and employee.manager_id:
+                    manager_inbox_ids = await NotificationDeliveryService.create_inbox_notification(
+                        db=db,
+                        recipient_employee_ids=[employee.manager_id],
+                        notification_type="attendance_late_alert",
+                        message_id=None,
+                        entity_type="attendance",
+                        entity_id=attendance_record.id,
+                        title=f"🚨 Late Arrival Alert: {employee.first_name} {employee.last_name}",
+                        body=f"{employee.first_name} {employee.last_name} has {late_count_this_month} late arrivals this month",
+                        metadata={
+                            "employee_id": employee_id,
+                            "late_count_this_month": late_count_this_month,
+                            "current_late_minutes": minutes_late
+                        }
+                    )
+                    inbox_ids.extend(manager_inbox_ids)
+                    manager_notified = True
+            
+            # 7. Audit log
+            audit_log = AuditLog(
+                user_id=user_id,
+                employee_id=employee_id,
+                action=AuditAction.CLOCK_IN,
+                entity_type="attendance",
+                entity_id=attendance_record.id,
+                description=f"Clocked in at {now.strftime('%I:%M %p')}" + (" (Late)" if is_late else ""),
+                new_value={
+                    "check_in": now.isoformat(),
+                    "is_late": is_late,
+                    "minutes_late": minutes_late,
+                    "location_valid": location_valid
+                },
+                success=True
+            )
+            db.add(audit_log)
+            
+            await db.commit()
+            await db.refresh(attendance_record)
+            
+            # 8. Build delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=True,
+                inbox_created=len(inbox_ids) > 0,
+                event_emitted=True,
+                audit_logged=True,
+                event_channel="attendance_events",
+                inbox_ids=inbox_ids,
+                error=None
+            )
+            
+            # 9. Prepare response with all notifications
+            response = {
+                "success": True,
+                "message": "✅ Clocked in successfully!",
+                "attendance_id": attendance_record.id,
+                "check_in_time": now.strftime('%I:%M %p'),
+                "date": today.isoformat(),
+                "status": attendance_record.status,
+                "validations": {
+                    "location_verified": location_valid,
+                    "distance_from_office_meters": distance_from_office if distance_from_office else None,
+                    "is_late": is_late,
+                    "minutes_late": minutes_late if is_late else 0
+                },
+                "notifications": [],
+                "summary": {
+                    "late_arrivals_this_month": late_count_this_month,
+                    "expected_clock_out": "06:00 PM",
+                    "work_hours_target": 8
+                },
+                "delivery_status": delivery_status
             }
-        }
-        
-        # 7. Add notifications based on conditions
-        if is_late:
-            response["notifications"].append({
-                "type": "late_arrival",
-                "severity": "warning",
-                "message": f"⚠️ You're {minutes_late} minutes late. Expected arrival: 9:30 AM"
-            })
-        
-        if late_count_this_month >= AttendanceAutomationService.LATE_ARRIVAL_THRESHOLD_COUNT:
-            response["notifications"].append({
-                "type": "manager_alert",
-                "severity": "high",
-                "message": f"🚨 Manager notified: {late_count_this_month} late arrivals this month",
-                "action_required": "Please maintain punctuality"
-            })
-        
-        if not location_valid and distance_from_office:
-            response["notifications"].append({
-                "type": "remote_location",
-                "severity": "info",
-                "message": f"📍 Clocked in from remote location ({int(distance_from_office)}m from office)"
-            })
-        
-        # 8. Add smart features
-        response["smart_reminders"] = {
-            "clock_out_reminder": "You'll receive a reminder at 8:00 PM if you forget to clock out",
-            "calendar_status": "Your status has been updated to 'In Office' on calendar"
-        }
-        
-        return response
+            
+            # 10. Add notifications based on conditions
+            if is_late:
+                response["notifications"].append({
+                    "type": "late_arrival",
+                    "severity": "warning",
+                    "message": f"⚠️ You're {minutes_late} minutes late. Expected arrival: 9:30 AM"
+                })
+            
+            if manager_notified:
+                response["notifications"].append({
+                    "type": "manager_alert",
+                    "severity": "high",
+                    "message": f"🚨 Manager notified: {late_count_this_month} late arrivals this month",
+                    "action_required": "Please maintain punctuality"
+                })
+            
+            if not location_valid and distance_from_office:
+                response["notifications"].append({
+                    "type": "remote_location",
+                    "severity": "info",
+                    "message": f"📍 Clocked in from remote location ({int(distance_from_office)}m from office)"
+                })
+            
+            # 11. Add smart features
+            response["smart_reminders"] = {
+                "clock_out_reminder": "You'll receive a reminder at 8:00 PM if you forget to clock out",
+                "calendar_status": "Your status has been updated to 'In Office' on calendar"
+            }
+            
+            return response
+            
+        except Exception as e:
+            await db.rollback()
+            # Build error delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=False,
+                inbox_created=False,
+                event_emitted=False,
+                audit_logged=False,
+                event_channel=None,
+                inbox_ids=[],
+                error=str(e)
+            )
+            return {
+                "success": False,
+                "error": "clock_in_failed",
+                "message": f"Failed to clock in: {str(e)}",
+                "delivery_status": delivery_status
+            }
     
     @staticmethod
     async def clock_out(
         db: AsyncSession,
         employee_id: int,
+        user_id: int,
         user_lat: Optional[float] = None,
         user_lng: Optional[float] = None
     ) -> Dict[str, Any]:
         """
         Automated clock out with work hours calculation
+        Now includes inbox notifications and delivery status
         """
+        from sqlalchemy import text
+        from app.models.workflow import AuditLog, AuditAction
+        from app.services.notification_delivery import NotificationDeliveryService
+        import uuid
+        
         now = datetime.now()
         today = now.date()
         
@@ -312,57 +433,134 @@ class AttendanceAutomationService:
                 "check_out_time": existing_attendance.check_out.isoformat()
             }
         
-        # 2. Update attendance with clock out
-        existing_attendance.check_out = now.time()
-        
-        # 3. Calculate work hours
-        check_in_datetime = datetime.combine(today, existing_attendance.check_in)
-        check_out_datetime = datetime.combine(today, now.time())
-        work_duration = check_out_datetime - check_in_datetime
-        work_hours = work_duration.total_seconds() / 3600
-        
-        existing_attendance.work_hours = round(work_hours, 2)
-        
-        # Check overtime
-        overtime_minutes = 0
-        if work_hours > 8:
-            overtime_minutes = int((work_hours - 8) * 60)
-            existing_attendance.overtime_minutes = overtime_minutes
-        
-        await db.commit()
-        await db.refresh(existing_attendance)
-        
-        # 4. Prepare response
-        response = {
-            "success": True,
-            "message": "✅ Clocked out successfully!",
-            "attendance_id": existing_attendance.id,
-            "check_in_time": existing_attendance.check_in.strftime('%I:%M %p'),
-            "check_out_time": now.strftime('%I:%M %p'),
-            "work_hours": existing_attendance.work_hours,
-            "summary": {
-                "total_work_hours": f"{int(work_hours)}h {int((work_hours % 1) * 60)}m",
-                "overtime": f"{overtime_minutes} minutes" if overtime_minutes > 0 else "None",
-                "productivity": "On track" if work_hours >= 8 else "Below target"
-            },
-            "smart_insights": []
-        }
-        
-        # 5. Add smart insights
-        if work_hours >= 9:
-            response["smart_insights"].append({
-                "type": "overtime_worked",
-                "message": f"💼 You worked {overtime_minutes} minutes overtime today. Great dedication!"
-            })
-        
-        if work_hours < 8:
-            shortage = 8 - work_hours
-            response["smart_insights"].append({
-                "type": "underhours",
-                "message": f"⚠️ You worked {shortage:.1f} hours less than target today. Please regularize if needed."
-            })
-        
-        return response
+        try:
+            # 2. Update attendance with clock out
+            existing_attendance.check_out = now.time()
+            
+            # 3. Calculate work hours
+            check_in_datetime = datetime.combine(today, existing_attendance.check_in)
+            check_out_datetime = datetime.combine(today, now.time())
+            work_duration = check_out_datetime - check_in_datetime
+            work_hours = work_duration.total_seconds() / 3600
+            
+            existing_attendance.work_hours = round(work_hours, 2)
+            
+            # Check overtime
+            overtime_minutes = 0
+            if work_hours > 8:
+                overtime_minutes = int((work_hours - 8) * 60)
+                existing_attendance.overtime_minutes = overtime_minutes
+            
+            await db.flush()
+            
+            # 4. Create inbox notification
+            notification_title = f"✅ Clocked Out at {now.strftime('%I:%M %p')}"
+            notification_body = f"Total work hours: {existing_attendance.work_hours}h"
+            
+            if overtime_minutes > 0:
+                notification_body += f" (Overtime: {overtime_minutes} minutes)"
+            elif work_hours < 8:
+                notification_body += f" (Short by {8 - work_hours:.1f}h)"
+            
+            inbox_ids = await NotificationDeliveryService.create_inbox_notification(
+                db=db,
+                recipient_employee_ids=[employee_id],
+                notification_type="attendance_clock_out",
+                message_id=None,
+                entity_type="attendance",
+                entity_id=existing_attendance.id,
+                title=notification_title,
+                body=notification_body,
+                metadata={
+                    "check_out_time": now.isoformat(),
+                    "work_hours": existing_attendance.work_hours,
+                    "overtime_minutes": overtime_minutes,
+                    "check_in_time": existing_attendance.check_in.isoformat()
+                }
+            )
+            
+            # 5. Audit log
+            audit_log = AuditLog(
+                user_id=user_id,
+                employee_id=employee_id,
+                action=AuditAction.CLOCK_OUT,
+                entity_type="attendance",
+                entity_id=existing_attendance.id,
+                description=f"Clocked out at {now.strftime('%I:%M %p')} (Work hours: {existing_attendance.work_hours}h)",
+                new_value={
+                    "check_out": now.isoformat(),
+                    "work_hours": existing_attendance.work_hours,
+                    "overtime_minutes": overtime_minutes
+                },
+                success=True
+            )
+            db.add(audit_log)
+            
+            await db.commit()
+            await db.refresh(existing_attendance)
+            
+            # 6. Build delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=True,
+                inbox_created=len(inbox_ids) > 0,
+                event_emitted=True,
+                audit_logged=True,
+                event_channel="attendance_events",
+                inbox_ids=inbox_ids,
+                error=None
+            )
+            
+            # 7. Prepare response
+            response = {
+                "success": True,
+                "message": "✅ Clocked out successfully!",
+                "attendance_id": existing_attendance.id,
+                "check_in_time": existing_attendance.check_in.strftime('%I:%M %p'),
+                "check_out_time": now.strftime('%I:%M %p'),
+                "work_hours": existing_attendance.work_hours,
+                "summary": {
+                    "total_work_hours": f"{int(work_hours)}h {int((work_hours % 1) * 60)}m",
+                    "overtime": f"{overtime_minutes} minutes" if overtime_minutes > 0 else "None",
+                    "productivity": "On track" if work_hours >= 8 else "Below target"
+                },
+                "smart_insights": [],
+                "delivery_status": delivery_status
+            }
+            
+            # 8. Add smart insights
+            if work_hours >= 9:
+                response["smart_insights"].append({
+                    "type": "overtime_worked",
+                    "message": f"💼 You worked {overtime_minutes} minutes overtime today. Great dedication!"
+                })
+            
+            if work_hours < 8:
+                shortage = 8 - work_hours
+                response["smart_insights"].append({
+                    "type": "underhours",
+                    "message": f"⚠️ You worked {shortage:.1f} hours less than target today. Please regularize if needed."
+                })
+            
+            return response
+            
+        except Exception as e:
+            await db.rollback()
+            # Build error delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=False,
+                inbox_created=False,
+                event_emitted=False,
+                audit_logged=False,
+                event_channel=None,
+                inbox_ids=[],
+                error=str(e)
+            )
+            return {
+                "success": False,
+                "error": "clock_out_failed",
+                "message": f"Failed to clock out: {str(e)}",
+                "delivery_status": delivery_status
+            }
     
     @staticmethod
     async def get_attendance_summary(

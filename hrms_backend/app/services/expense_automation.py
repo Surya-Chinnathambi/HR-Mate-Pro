@@ -296,6 +296,7 @@ class ExpenseAutomationService:
     async def submit_expense_claim(
         db: AsyncSession,
         employee_id: int,
+        user_id: int,
         category: str,
         amount: float,
         expense_date: date,
@@ -307,9 +308,13 @@ class ExpenseAutomationService:
     ) -> Dict[str, Any]:
         """
         Submit expense claim with validation and auto-routing
+        Now includes inbox notifications, audit logging, and delivery status
         """
         from app.models import Employee
-        from app.models.workflow import ApprovalRequest, RequestType, ApprovalStatus
+        from app.models.workflow import ApprovalRequest, RequestType, ApprovalStatus, AuditLog, AuditAction
+        from app.services.notification_delivery import NotificationDeliveryService
+        from sqlalchemy import text
+        import uuid
         
         # Get employee
         stmt = select(Employee).where(Employee.id == employee_id)
@@ -346,55 +351,155 @@ class ExpenseAutomationService:
         approver_id = employee.manager_id
         requires_finance_approval = validation.get("requires_finance_approval", False)
         
-        # Create expense claim record
-        # TODO: Create actual ExpenseClaim model
-        # For now, use ApprovalRequest as placeholder
+        if not approver_id:
+            return {
+                "success": False,
+                "error": "no_manager",
+                "message": "No manager assigned. Cannot submit expense claim."
+            }
         
-        expense_claim_data = {
-            "employee_id": employee_id,
-            "category": category,
-            "amount": amount,
-            "expense_date": expense_date,
-            "description": description,
-            "merchant": merchant,
-            "has_receipt": has_receipt,
-            "receipt_url": receipt_url,
-            "mileage_data": mileage_data,
-            "submitted_at": datetime.utcnow()
-        }
-        
-        # Create approval request
-        approval = ApprovalRequest(
-            request_type=RequestType.OTHER,  # Would be RequestType.EXPENSE_CLAIM
-            requester_id=employee_id,
-            approver_id=approver_id,
-            status=ApprovalStatus.PENDING,
-            request_data=expense_claim_data,
-            created_at=datetime.utcnow()
-        )
-        
-        db.add(approval)
-        await db.commit()
-        await db.refresh(approval)
-        
-        return {
-            "success": True,
-            "claim_id": approval.id,
-            "message": "Expense claim submitted successfully",
-            "status": "pending_approval",
-            "approver": {
-                "id": approver_id,
-                "name": "Manager"  # Would fetch actual manager name
-            },
-            "requires_finance_approval": requires_finance_approval,
-            "warnings": validation.get("warnings", []),
-            "estimated_processing_days": 3 if not requires_finance_approval else 7,
-            "next_steps": [
-                "Your manager will review the claim",
-                "Finance team will verify if amount > ₹15,000" if requires_finance_approval else None,
-                "You'll receive notification once approved"
-            ]
-        }
+        try:
+            # Create expense claim data
+            expense_claim_data = {
+                "employee_id": employee_id,
+                "category": category,
+                "amount": amount,
+                "expense_date": expense_date.isoformat() if isinstance(expense_date, date) else expense_date,
+                "description": description,
+                "merchant": merchant,
+                "has_receipt": has_receipt,
+                "receipt_url": receipt_url,
+                "mileage_data": mileage_data,
+                "submitted_at": datetime.utcnow().isoformat()
+            }
+            
+            # Create approval request
+            approval = ApprovalRequest(
+                request_type=RequestType.OTHER,  # Would be RequestType.EXPENSE_CLAIM
+                requester_id=employee_id,
+                approver_id=approver_id,
+                status=ApprovalStatus.PENDING,
+                request_data=expense_claim_data,
+                created_at=datetime.utcnow()
+            )
+            
+            db.add(approval)
+            await db.flush()
+            
+            # Create inbox notifications
+            inbox_ids = []
+            
+            # Notify employee (confirmation)
+            employee_inbox_ids = await NotificationDeliveryService.create_inbox_notification(
+                db=db,
+                recipient_employee_ids=[employee_id],
+                notification_type="expense_claim_submitted",
+                message_id=None,
+                entity_type="expense_claim",
+                entity_id=approval.id,
+                title=f"Expense Claim Submitted: ₹{amount:,.2f}",
+                body=f"Your {category} expense claim for ₹{amount:,.2f} has been submitted for approval. Description: {description}",
+                metadata={
+                    "category": category,
+                    "amount": amount,
+                    "expense_date": expense_date.isoformat() if isinstance(expense_date, date) else expense_date,
+                    "merchant": merchant,
+                    "status": "pending"
+                }
+            )
+            inbox_ids.extend(employee_inbox_ids)
+            
+            # Notify manager (approval request)
+            manager_inbox_ids = await NotificationDeliveryService.create_inbox_notification(
+                db=db,
+                recipient_employee_ids=[approver_id],
+                notification_type="expense_claim_pending",
+                message_id=None,
+                entity_type="expense_claim",
+                entity_id=approval.id,
+                title=f"Expense Approval Needed: {employee.first_name} {employee.last_name}",
+                body=f"{employee.first_name} {employee.last_name} submitted a {category} expense claim for ₹{amount:,.2f}. Description: {description}",
+                metadata={
+                    "employee_id": employee_id,
+                    "category": category,
+                    "amount": amount,
+                    "expense_date": expense_date.isoformat() if isinstance(expense_date, date) else expense_date,
+                    "requires_action": True
+                }
+            )
+            inbox_ids.extend(manager_inbox_ids)
+            
+            # Audit log
+            audit_log = AuditLog(
+                user_id=user_id,
+                employee_id=employee_id,
+                action=AuditAction.CREATE,
+                entity_type="expense_claim",
+                entity_id=approval.id,
+                description=f"Submitted {category} expense claim for ₹{amount:,.2f}",
+                new_value={
+                    "category": category,
+                    "amount": amount,
+                    "expense_date": expense_date.isoformat() if isinstance(expense_date, date) else expense_date,
+                    "description": description,
+                    "status": "pending"
+                },
+                success=True
+            )
+            db.add(audit_log)
+            
+            await db.commit()
+            await db.refresh(approval)
+            
+            # Build delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=True,
+                inbox_created=len(inbox_ids) > 0,
+                event_emitted=True,
+                audit_logged=True,
+                event_channel="expense_claim_events",
+                inbox_ids=inbox_ids,
+                error=None
+            )
+            
+            return {
+                "success": True,
+                "claim_id": approval.id,
+                "message": "Expense claim submitted successfully",
+                "status": "pending_approval",
+                "approver": {
+                    "id": approver_id,
+                    "name": f"{employee.first_name}'s Manager"
+                },
+                "requires_finance_approval": requires_finance_approval,
+                "warnings": validation.get("warnings", []),
+                "estimated_processing_days": 3 if not requires_finance_approval else 7,
+                "next_steps": [
+                    "Your manager will review the claim",
+                    "Finance team will verify if amount > ₹15,000" if requires_finance_approval else None,
+                    "You'll receive notification once approved"
+                ],
+                "delivery_status": delivery_status
+            }
+            
+        except Exception as e:
+            await db.rollback()
+            # Build error delivery status
+            delivery_status = NotificationDeliveryService.build_delivery_status(
+                entity_created=False,
+                inbox_created=False,
+                event_emitted=False,
+                audit_logged=False,
+                event_channel=None,
+                inbox_ids=[],
+                error=str(e)
+            )
+            return {
+                "success": False,
+                "error": "expense_claim_failed",
+                "message": f"Failed to submit expense claim: {str(e)}",
+                "delivery_status": delivery_status
+            }
     
     @staticmethod
     async def get_expense_summary(

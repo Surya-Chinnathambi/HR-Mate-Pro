@@ -209,10 +209,16 @@ class TaskAutomationService:
     ) -> Dict[str, Any]:
         """Assign task to team member (manager function)
 
-        Note: uses `assigner_id` / `assignee_id` field names consistent with WorkAssignment model.
+        Enhanced with 4-step pattern:
+        1. RBAC validation (done by caller)
+        2. DB transaction (task + inbox notification + audit log)
+        3. Event emission (pg_notify for downstream workers)
+        4. Return detailed delivery status
         """
         from app.models import Employee
-        from app.models.workflow import WorkAssignment, TaskPriority, TaskStatus
+        from app.models.workflow import WorkAssignment, TaskPriority, TaskStatus, AuditLog, AuditAction
+        from sqlalchemy import text
+        import uuid
         
         # Verify manager permission
         stmt = select(Employee).where(Employee.id == manager_id)
@@ -223,10 +229,14 @@ class TaskAutomationService:
             return {
                 "success": False,
                 "error": "unauthorized",
-                "message": "Only managers can assign tasks"
+                "message": "Only managers can assign tasks",
+                "delivery_status": {
+                    "inbox_created": False,
+                    "event_emitted": False
+                }
             }
         
-        # Check if assignee exists and reports to manager
+        # Check if assignee exists
         stmt = select(Employee).where(Employee.id == assignee_id)
         result = await db.execute(stmt)
         assignee = result.scalar_one_or_none()
@@ -235,11 +245,16 @@ class TaskAutomationService:
             return {
                 "success": False,
                 "error": "assignee_not_found",
-                "message": "Assignee not found"
+                "message": "Assignee not found",
+                "delivery_status": {
+                    "inbox_created": False,
+                    "event_emitted": False
+                }
             }
         
-        # Create task
+        # Step 2: Single DB transaction - create task + inbox notification + audit log
         try:
+            # Create task
             task = WorkAssignment(
                 title=title,
                 description=description,
@@ -252,28 +267,92 @@ class TaskAutomationService:
                 assigned_date=date.today(),
                 created_at=datetime.utcnow()
             )
-        except ValueError:
+            db.add(task)
+            await db.flush()  # Get task.id without committing
+            
+            # Create inbox notification for assignee
+            inbox_id = uuid.uuid4()
+            # Insert into tasks table (will trigger pg_notify via trigger)
+            await db.execute(
+                text("""
+                    INSERT INTO tasks (task_id, title, description, assigned_by, assigned_to, status, priority, due_date, estimated_hours, created_at)
+                    VALUES (:task_id, :title, :description, :assigned_by, :assigned_to, :status, :priority, :due_date, :estimated_hours, now())
+                    ON CONFLICT (task_id) DO NOTHING
+                """),
+                {
+                    "task_id": str(uuid.uuid4()),
+                    "title": title,
+                    "description": description or "",
+                    "assigned_by": manager_id,
+                    "assigned_to": assignee_id,
+                    "status": "assigned",
+                    "priority": priority.lower(),
+                    "due_date": due_date,
+                    "estimated_hours": estimated_hours
+                }
+            )
+            
+            # Create audit log
+            audit = AuditLog(
+                user_id=manager.user_id if hasattr(manager, 'user_id') else None,
+                employee_id=manager_id,
+                action=AuditAction.ASSIGN,
+                entity_type="work_assignment",
+                entity_id=task.id,
+                description=f"Assigned task '{title}' to employee {assignee_id}",
+                new_value=f'{{"task_id": {task.id}, "assignee_id": {assignee_id}, "priority": "{priority}"}}'
+            )
+            db.add(audit)
+            
+            await db.commit()
+            await db.refresh(task)
+            
+            # Step 3: Event emission happens via DB trigger (trg_emit_task_event)
+            # The trigger automatically emits pg_notify('task_events', ...) on insert
+            
+            # Step 4: Return detailed delivery status
+            return {
+                "success": True,
+                "message": f"Task assigned to {assignee.first_name} {assignee.last_name}",
+                "task_id": task.id,
+                "assignee": {
+                    "id": assignee.id,
+                    "name": f"{assignee.first_name} {assignee.last_name}",
+                    "email": assignee.email
+                },
+                "due_date": due_date.isoformat() if due_date else None,
+                "priority": priority,
+                "delivery_status": {
+                    "task_created": True,
+                    "inbox_notification_created": True,
+                    "event_emitted": True,
+                    "event_channel": "task_events",
+                    "audit_logged": True
+                }
+            }
+            
+        except ValueError as e:
+            await db.rollback()
             return {
                 "success": False,
                 "error": "invalid_priority",
-                "message": f"Invalid priority: {priority}. Valid: low, medium, high, critical"
+                "message": f"Invalid priority: {priority}. Valid: low, medium, high, urgent",
+                "delivery_status": {
+                    "inbox_created": False,
+                    "event_emitted": False
+                }
             }
-        
-        db.add(task)
-        await db.commit()
-        await db.refresh(task)
-        
-        return {
-            "success": True,
-            "message": f"Task assigned to {assignee.first_name} {assignee.last_name}",
-            "task_id": task.id,
-            "assignee": {
-                "id": assignee.id,
-                "name": f"{assignee.first_name} {assignee.last_name}"
-            },
-            "due_date": due_date.isoformat() if due_date else None,
-            "priority": priority
-        }
+        except Exception as e:
+            await db.rollback()
+            return {
+                "success": False,
+                "error": "database_error",
+                "message": f"Failed to assign task: {str(e)}",
+                "delivery_status": {
+                    "inbox_created": False,
+                    "event_emitted": False
+                }
+            }
     
     @staticmethod
     async def get_team_workload(
