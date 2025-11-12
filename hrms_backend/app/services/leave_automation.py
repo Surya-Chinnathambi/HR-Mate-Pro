@@ -313,6 +313,7 @@ class LeaveAutomationService:
     async def submit_leave_application(
         db: AsyncSession,
         employee_id: int,
+        user_id: int,
         leave_type: str,
         start_date: date,
         end_date: date,
@@ -431,9 +432,9 @@ class LeaveAutomationService:
                 }
             )
             
-            # Create audit log
+            # 7. Create audit log
             audit = AuditLog(
-                user_id=employee.user_id if hasattr(employee, 'user_id') else None,
+                user_id=user_id,
                 employee_id=employee_id,
                 action=AuditAction.CREATE,
                 entity_type="leave_application",

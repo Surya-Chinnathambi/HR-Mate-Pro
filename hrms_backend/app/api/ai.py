@@ -1173,6 +1173,7 @@ async def submit_leave_application(
         result = await LeaveAutomationService.submit_leave_application(
             db=session,
             employee_id=employee.id,
+            user_id=current_user.id,
             leave_type=leave_type,
             start_date=start,
             end_date=end,
@@ -1293,6 +1294,7 @@ async def submit_wfh_request(
         result = await WFHAutomationService.submit_wfh_request(
             db=session,
             employee_id=employee.id,
+            user_id=current_user.id,
             wfh_date=wfh_date,
             reason=reason,
             manager_id=employee.manager_id
@@ -1700,6 +1702,7 @@ async def submit_expense_claim_endpoint(
         result = await ExpenseAutomationService.submit_expense_claim(
             db=session,
             employee_id=employee.id,
+            user_id=current_user.id,
             category=category,
             amount=amount,
             expense_date=expense_date_obj,
