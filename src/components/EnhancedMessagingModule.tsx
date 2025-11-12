@@ -34,7 +34,7 @@ interface Employee {
     department?: string;
 }
 
-export function EnhancedMessagingModule() {
+export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -85,10 +85,35 @@ export function EnhancedMessagingModule() {
 
     async function loadEmployees() {
         try {
-            const response = await api.employees.getAll({ limit: 1000 });
-            setEmployees(response.data || []);
+            // Determine which employees to load based on user role
+            const userRole = currentUser?.role?.toLowerCase();
+
+            if (userRole === 'manager') {
+                // Managers see only their team members
+                const response = await api.team.getMembers({ limit: 1000 });
+                const teamMembers = response.data.members || [];
+
+                // Convert team members to Employee format
+                setEmployees(teamMembers.map((member: any) => ({
+                    id: member.employee_id,
+                    first_name: member.first_name,
+                    last_name: member.last_name,
+                    email: member.email,
+                    role: member.role,
+                    department: member.department_id
+                })));
+            } else if (userRole === 'hr' || userRole === 'admin') {
+                // HR and Admin see all employees
+                const response = await api.employees.getAll({ limit: 1000 });
+                setEmployees(response.data || []);
+            } else {
+                // Regular employees see all employees
+                const response = await api.employees.getAll({ limit: 1000 });
+                setEmployees(response.data || []);
+            }
         } catch (error) {
             console.error('Failed to load employees:', error);
+            toast.error('Failed to load employee list');
         }
     }
 
@@ -300,6 +325,31 @@ export function EnhancedMessagingModule() {
                         {/* Compose Form */}
                         <div className="flex-1 overflow-y-auto p-6">
                             <div className="max-w-3xl mx-auto space-y-4">
+                                {/* Role-based recipient info banner */}
+                                {currentUser?.role && (
+                                    <div className={`p-3 rounded-lg border ${currentUser.role.toLowerCase() === 'manager'
+                                            ? 'bg-blue-50 border-blue-200'
+                                            : currentUser.role.toLowerCase() === 'hr' || currentUser.role.toLowerCase() === 'admin'
+                                                ? 'bg-purple-50 border-purple-200'
+                                                : 'bg-gray-50 border-gray-200'
+                                        }`}>
+                                        <div className="flex items-center gap-2">
+                                            <User className="w-4 h-4 text-gray-600" />
+                                            <p className="text-sm text-gray-700">
+                                                {currentUser.role.toLowerCase() === 'manager' && (
+                                                    <span><strong>Manager View:</strong> You can message your team members</span>
+                                                )}
+                                                {(currentUser.role.toLowerCase() === 'hr' || currentUser.role.toLowerCase() === 'admin') && (
+                                                    <span><strong>HR/Admin View:</strong> You can message all employees</span>
+                                                )}
+                                                {!['manager', 'hr', 'admin'].includes(currentUser.role.toLowerCase()) && (
+                                                    <span><strong>Employee View:</strong> You can message any employee</span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* To Field */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -478,8 +528,8 @@ export function EnhancedMessagingModule() {
                                 </h2>
                                 {selectedMessage.priority && selectedMessage.priority !== 'normal' && (
                                     <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 ${selectedMessage.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                                            selectedMessage.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                                                'bg-blue-100 text-blue-800'
+                                        selectedMessage.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                            'bg-blue-100 text-blue-800'
                                         }`}>
                                         {selectedMessage.priority.toUpperCase()} PRIORITY
                                     </span>

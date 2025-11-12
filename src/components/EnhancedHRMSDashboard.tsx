@@ -284,6 +284,19 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
       return <Component employee={employee || null} />;
     }
 
+    // Pass currentUser prop to components that need role-based data
+    if (
+      Component === EnhancedMessagingModule ||
+      Component === EnhancedBroadcastsModule ||
+      Component === EnhancedAttendanceModule ||
+      Component === EnhancedLeaveModule ||
+      Component === EnhancedPerformanceModule ||
+      Component === EnhancedExpensesModule ||
+      Component === EnhancedCompanyPoliciesModule
+    ) {
+      return <Component currentUser={employee} />;
+    }
+
     // Render without props for other components
     return <Component />;
   };
