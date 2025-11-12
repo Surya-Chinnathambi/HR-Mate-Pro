@@ -9,28 +9,35 @@ import {
 
 // Import all your existing components
 import { EmployeeDashboardContent } from "./EmployeeDashboardContent";
-import { AttendanceModule } from "./AttendanceModule";
-import { LeaveModule } from "./LeaveModule";
-import { PayrollModule } from "./PayrollModule";
 import { ProfileModule } from "./ProfileModule";
-import { MyTeamModule } from "./MyTeamModule";
-import { PerformanceModule } from "./PerformanceModule";
-import { ExpensesModule } from "./ExpensesModule";
+import { PayrollModule } from "./PayrollModule";
 import { MyFinancesModule } from "./MyFinancesModule";
-import { HelpdeskModule } from "./HelpdeskModule";
 import { AppsModule } from "./AppsModule";
 import { EngageModule } from "./EngageModule";
-import { OrganizationTreeModule } from "./OrganizationTreeModule";
-import { OrganizationDirectory } from "./OrganizationDirectory";
 import { AICommandCenter } from "./AICommandCenter";
-import { CompanyPoliciesModule } from "./CompanyPoliciesModule";
 import { ChangePasswordModal } from "./ChangePasswordModal";
 import { ThemePickerModal } from "./ThemePickerModal";
-// Import new manager/analytics components
-import ManagerDashboard from "./ManagerDashboard";
-import WorkInbox from "./WorkInbox";
-import ApprovalQueue from "./ApprovalQueue";
-import AnalyticsDashboard from "./AnalyticsDashboard";
+
+// Phase 2: Core Communication & Work Modules
+import { EnhancedWorkInbox } from "./EnhancedWorkInbox";
+import { EnhancedMessagingModule } from "./EnhancedMessagingModule";
+import { EnhancedBroadcastsModule } from "./EnhancedBroadcastsModule";
+import EnhancedAttendanceModule from "./EnhancedAttendanceModule";
+import EnhancedLeaveModule from "./EnhancedLeaveModule";
+
+// Phase 3: Manager & Analytics Modules
+import EnhancedMyTeamModule from "./EnhancedMyTeamModule";
+import EnhancedAnalyticsDashboard from "./EnhancedAnalyticsDashboard";
+
+// Phase 4: Additional Modules
+import EnhancedPerformanceModule from "./EnhancedPerformanceModule";
+import EnhancedExpensesModule from "./EnhancedExpensesModule";
+import EnhancedHelpdeskModule from "./EnhancedHelpdeskModule";
+import EnhancedOrganizationTreeModule from "./EnhancedOrganizationTreeModule";
+import EnhancedCompanyPoliciesModule from "./EnhancedCompanyPoliciesModule";
+
+// Supporting Component
+import { NotificationBell } from "./NotificationBell";
 
 interface MenuItem {
   id: string;
@@ -93,8 +100,8 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
 
           // Set default dashboard based on role
           if (role === 'manager') {
-            console.log('✅ Setting manager default module: team-dashboard');
-            setActiveModule('team-dashboard');
+            console.log('✅ Setting manager default module: my-team');
+            setActiveModule('my-team');
           } else if (role === 'hr') {
             console.log('✅ Setting HR default module: analytics');
             setActiveModule('analytics');
@@ -131,7 +138,7 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
     return () => clearInterval(timer);
   }, []);
 
-  // Menu structure - Same for all roles with filtered visibility
+  // Menu structure - Enhanced with all 12 new modules
   const menuItems: MenuItem[] = [
     {
       id: "dashboard",
@@ -141,39 +148,46 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
       color: "from-blue-500 to-cyan-500"
     },
     {
+      id: "work-inbox",
+      label: "Work Inbox",
+      icon: Target,
+      badge: notifications?.unreadCount,
+      component: EnhancedWorkInbox,
+      color: "from-orange-500 to-red-500"
+    },
+    {
+      id: "communications",
+      label: "Communications",
+      icon: MessageCircle,
+      color: "from-pink-500 to-rose-500",
+      subItems: [
+        { id: "messages", label: "Messages", icon: MessageCircle, component: EnhancedMessagingModule },
+        { id: "broadcasts", label: "Broadcasts", icon: Bell, component: EnhancedBroadcastsModule },
+        { id: "engage", label: "Engage", icon: ThumbsUp, component: EngageModule }
+      ]
+    },
+    {
       id: "me",
       label: "Me",
       icon: User,
       color: "from-purple-500 to-pink-500",
       subItems: [
-        { id: "attendance", label: "Attendance", icon: Clock, component: AttendanceModule },
-        { id: "leave", label: "Leave", icon: Calendar, component: LeaveModule },
-        { id: "performance", label: "Performance", icon: TrendingUp, component: PerformanceModule },
-        { id: "expenses", label: "Expenses & Travel", icon: CreditCard, component: ExpensesModule },
-        { id: "helpdesk", label: "Helpdesk", icon: Headphones, component: HelpdeskModule },
+        { id: "attendance", label: "Attendance", icon: Clock, component: EnhancedAttendanceModule },
+        { id: "leave", label: "Leave", icon: Calendar, component: EnhancedLeaveModule },
+        { id: "performance", label: "Performance", icon: TrendingUp, component: EnhancedPerformanceModule },
+        { id: "expenses", label: "Expenses & Travel", icon: CreditCard, component: EnhancedExpensesModule },
+        { id: "helpdesk", label: "Helpdesk", icon: Headphones, component: EnhancedHelpdeskModule },
         { id: "apps", label: "Apps", icon: Grid, component: AppsModule }
       ]
-    },
-    {
-      id: "work-inbox",
-      label: "Work Inbox",
-      icon: Target,
-      badge: notifications?.unreadCount,
-      component: WorkInbox,
-      color: "from-orange-500 to-red-500"
     },
     {
       id: "my-team",
       label: "My Team",
       icon: Users,
       color: "from-indigo-500 to-purple-500",
-      component: ManagerDashboard,
+      component: EnhancedMyTeamModule,
       subItems: [
-        { id: "team-dashboard", label: "Manager Dashboard", icon: BarChart3, component: ManagerDashboard },
-        { id: "team-summary", label: "Summary", icon: Users, component: MyTeamModule },
-        { id: "approval-queue", label: "Approvals", icon: ThumbsUp, component: ApprovalQueue },
-        { id: "team-calendar", label: "Team Calendar", icon: Calendar },
-        { id: "peers", label: "Peers", icon: Users }
+        { id: "team-dashboard", label: "Team Dashboard", icon: BarChart3, component: EnhancedMyTeamModule }
       ]
     },
     {
@@ -181,7 +195,7 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
       label: "Analytics",
       icon: BarChart3,
       color: "from-cyan-500 to-blue-500",
-      component: AnalyticsDashboard
+      component: EnhancedAnalyticsDashboard
     },
     {
       id: "my-finances",
@@ -195,42 +209,19 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
     },
     {
       id: "org",
-      label: "Org",
+      label: "Organization",
       icon: Building,
       color: "from-emerald-500 to-green-500",
+      component: EnhancedOrganizationTreeModule,
       subItems: [
-        { id: "directory", label: "Employee Directory", icon: Users, component: OrganizationDirectory },
-        { id: "org-tree", label: "Organization Tree", icon: Building, component: OrganizationTreeModule }
-      ]
-    },
-    {
-      id: "engage",
-      label: "Engage",
-      icon: MessageCircle,
-      color: "from-pink-500 to-rose-500",
-      component: EngageModule,
-      subItems: [
-        { id: "posts", label: "Posts", icon: MessageCircle, component: EngageModule },
-        { id: "polls", label: "Polls", icon: BarChart3 },
-        { id: "praise", label: "Praise", icon: ThumbsUp }
-      ]
-    },
-    {
-      id: "performance-main",
-      label: "Performance",
-      icon: Target,
-      color: "from-teal-500 to-cyan-500",
-      subItems: [
-        { id: "my-goals", label: "My Goals", icon: Target },
-        { id: "feedback", label: "Feedback", icon: MessageCircle },
-        { id: "reviews", label: "Reviews", icon: FileText }
+        { id: "org-tree", label: "Organization Tree", icon: Building, component: EnhancedOrganizationTreeModule }
       ]
     },
     {
       id: "policies",
       label: "Company Policies",
       icon: FileText,
-      component: CompanyPoliciesModule,
+      component: EnhancedCompanyPoliciesModule,
       color: "from-slate-500 to-gray-600"
     }
   ];
@@ -279,9 +270,9 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
     if (!activeItem?.component) {
       // Default dashboard based on role
       if (userRole === 'manager') {
-        return <ManagerDashboard />;
+        return <EnhancedMyTeamModule />;
       } else if (userRole === 'hr') {
-        return <AnalyticsDashboard />;
+        return <EnhancedAnalyticsDashboard />;
       }
       return <EmployeeDashboardContent employee={employee || null} />;
     }
@@ -385,20 +376,7 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
               </button>
 
               {/* Notifications */}
-              <button
-                onClick={() => {
-                  handleModuleChange("inbox");
-                  setOpenMenu("inbox");
-                }}
-                className="relative p-3 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
-              >
-                <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                {notifications?.unreadCount && notifications.unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                    {notifications.unreadCount > 9 ? '9+' : notifications.unreadCount}
-                  </span>
-                )}
-              </button>
+              <NotificationBell />
 
               {/* User Profile Menu */}
               <div className="relative">
