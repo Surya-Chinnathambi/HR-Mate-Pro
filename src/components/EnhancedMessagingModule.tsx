@@ -41,6 +41,7 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
     const [loading, setLoading] = useState(false);
     const [composing, setComposing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [recipientSearchQuery, setRecipientSearchQuery] = useState('');
 
     // Compose form state
     const [recipient, setRecipient] = useState<Employee | null>(null);
@@ -48,8 +49,10 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
     const [body, setBody] = useState('');
     const [priority, setPriority] = useState('normal');
     const [sending, setSending] = useState(false);
+    const [showRecipientDropdown, setShowRecipientDropdown] = useState(false);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const recipientDropdownRef = useRef<HTMLDivElement>(null);
 
     const { isConnected, lastMessage } = useWebSocket({
         onMessage: handleWebSocketMessage,
@@ -60,6 +63,22 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
         loadMessages();
         loadEmployees();
     }, []);
+
+    // Click outside to close recipient dropdown
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (recipientDropdownRef.current && !recipientDropdownRef.current.contains(event.target as Node)) {
+                setShowRecipientDropdown(false);
+            }
+        }
+
+        if (showRecipientDropdown) {
+            document.addEventListener('mousedown', handleClickOutside);
+            return () => {
+                document.removeEventListener('mousedown', handleClickOutside);
+            };
+        }
+    }, [showRecipientDropdown]);
 
     // Handle WebSocket messages
     function handleWebSocketMessage(message: any) {
@@ -138,6 +157,8 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
             setSubject('');
             setBody('');
             setPriority('normal');
+            setRecipientSearchQuery('');
+            setShowRecipientDropdown(false);
 
             // Reload messages
             await loadMessages();
@@ -184,8 +205,8 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
 
     // Filter employees for recipient search
     const filteredEmployees = employees.filter(emp => {
-        if (!searchQuery) return true;
-        const query = searchQuery.toLowerCase();
+        if (!recipientSearchQuery) return true;
+        const query = recipientSearchQuery.toLowerCase();
         return (
             emp.first_name.toLowerCase().includes(query) ||
             emp.last_name.toLowerCase().includes(query) ||
@@ -315,6 +336,9 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
                                     setRecipient(null);
                                     setSubject('');
                                     setBody('');
+                                    setPriority('normal');
+                                    setRecipientSearchQuery('');
+                                    setShowRecipientDropdown(false);
                                 }}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                             >
@@ -328,22 +352,22 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
                                 {/* Role-based recipient info banner */}
                                 {currentUser?.role && (
                                     <div className={`p-3 rounded-lg border ${currentUser.role.toLowerCase() === 'manager'
-                                            ? 'bg-blue-50 border-blue-200'
-                                            : currentUser.role.toLowerCase() === 'hr' || currentUser.role.toLowerCase() === 'admin'
-                                                ? 'bg-purple-50 border-purple-200'
-                                                : 'bg-gray-50 border-gray-200'
+                                        ? 'bg-blue-50 border-blue-200'
+                                        : currentUser.role.toLowerCase() === 'hr' || currentUser.role.toLowerCase() === 'admin'
+                                            ? 'bg-purple-50 border-purple-200'
+                                            : 'bg-gray-50 border-gray-200'
                                         }`}>
                                         <div className="flex items-center gap-2">
                                             <User className="w-4 h-4 text-gray-600" />
                                             <p className="text-sm text-gray-700">
                                                 {currentUser.role.toLowerCase() === 'manager' && (
-                                                    <span><strong>Manager View:</strong> You can message your team members</span>
+                                                    <span><strong>Manager View:</strong> You can message your team members ({employees.length} members)</span>
                                                 )}
                                                 {(currentUser.role.toLowerCase() === 'hr' || currentUser.role.toLowerCase() === 'admin') && (
-                                                    <span><strong>HR/Admin View:</strong> You can message all employees</span>
+                                                    <span><strong>HR/Admin View:</strong> You can message all employees ({employees.length} employees)</span>
                                                 )}
                                                 {!['manager', 'hr', 'admin'].includes(currentUser.role.toLowerCase()) && (
-                                                    <span><strong>Employee View:</strong> You can message any employee</span>
+                                                    <span><strong>Employee View:</strong> You can message any employee ({employees.length} employees)</span>
                                                 )}
                                             </p>
                                         </div>
@@ -351,9 +375,9 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
                                 )}
 
                                 {/* To Field */}
-                                <div>
+                                <div ref={recipientDropdownRef}>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        To *
+                                        To * {employees.length > 0 && <span className="text-xs text-gray-500">({employees.length} available)</span>}
                                     </label>
                                     {recipient ? (
                                         <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -366,41 +390,74 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
                                                         {recipient.first_name} {recipient.last_name}
                                                     </p>
                                                     <p className="text-xs text-gray-500">{recipient.email}</p>
+                                                    {recipient.role && (
+                                                        <p className="text-xs text-blue-600">{recipient.role}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <button
-                                                onClick={() => setRecipient(null)}
+                                                onClick={() => {
+                                                    setRecipient(null);
+                                                    setRecipientSearchQuery('');
+                                                    setShowRecipientDropdown(false);
+                                                }}
                                                 className="p-1 hover:bg-blue-100 rounded transition-colors"
                                             >
                                                 <X className="w-4 h-4 text-gray-500" />
                                             </button>
                                         </div>
                                     ) : (
-                                        <div>
+                                        <div className="relative">
                                             <input
                                                 type="text"
-                                                placeholder="Search for recipient..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                placeholder={`Search for recipient... (${employees.length} available)`}
+                                                value={recipientSearchQuery}
+                                                onChange={(e) => {
+                                                    setRecipientSearchQuery(e.target.value);
+                                                    setShowRecipientDropdown(true);
+                                                }}
+                                                onFocus={() => setShowRecipientDropdown(true)}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                             />
-                                            {searchQuery && (
-                                                <div className="mt-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
-                                                    {filteredEmployees.slice(0, 10).map((emp) => (
-                                                        <button
-                                                            key={emp.id}
-                                                            onClick={() => {
-                                                                setRecipient(emp);
-                                                                setSearchQuery('');
-                                                            }}
-                                                            className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
-                                                        >
-                                                            <p className="text-sm font-medium text-gray-900">
-                                                                {emp.first_name} {emp.last_name}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500">{emp.email}</p>
-                                                        </button>
-                                                    ))}
+                                            {showRecipientDropdown && employees.length > 0 && (
+                                                <div className="absolute z-10 mt-2 w-full max-h-64 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg divide-y divide-gray-100">
+                                                    {filteredEmployees.length > 0 ? (
+                                                        filteredEmployees.slice(0, 20).map((emp) => (
+                                                            <button
+                                                                key={emp.id}
+                                                                onClick={() => {
+                                                                    setRecipient(emp);
+                                                                    setRecipientSearchQuery('');
+                                                                    setShowRecipientDropdown(false);
+                                                                }}
+                                                                className="w-full p-3 text-left hover:bg-gray-50 transition-colors flex items-center gap-2"
+                                                            >
+                                                                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                                    <User className="w-4 h-4 text-blue-600" />
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-sm font-medium text-gray-900">
+                                                                        {emp.first_name} {emp.last_name}
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-500 truncate">{emp.email}</p>
+                                                                    {emp.role && (
+                                                                        <p className="text-xs text-blue-600">{emp.role}</p>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-4 text-center text-sm text-gray-500">
+                                                            No employees found matching "{recipientSearchQuery}"
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {showRecipientDropdown && employees.length === 0 && (
+                                                <div className="absolute z-10 mt-2 w-full p-4 border border-gray-200 rounded-lg bg-white shadow-lg text-center text-sm text-gray-500">
+                                                    {currentUser?.role?.toLowerCase() === 'manager'
+                                                        ? 'No team members found. You may not have any direct reports.'
+                                                        : 'No employees found in the system.'}
                                                 </div>
                                             )}
                                         </div>
@@ -460,6 +517,9 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
                                             setRecipient(null);
                                             setSubject('');
                                             setBody('');
+                                            setPriority('normal');
+                                            setRecipientSearchQuery('');
+                                            setShowRecipientDropdown(false);
                                         }}
                                         className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                                     >
