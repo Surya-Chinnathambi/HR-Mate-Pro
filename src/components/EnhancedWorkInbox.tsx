@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useNotifications, Notification } from '../hooks/useNotifications';
 import {
     Bell, Check, CheckCheck, Trash2, Filter, RefreshCw, Search,
-    Clock, MessageSquare, Calendar, AlertCircle, CheckCircle, 
+    Clock, MessageSquare, Calendar, AlertCircle, CheckCircle,
     X, Settings, Download, Archive, Mail, MailOpen
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
@@ -85,7 +85,7 @@ export function EnhancedWorkInbox() {
     // Bulk delete
     const handleBulkDelete = async () => {
         if (!confirm(`Delete ${selectedNotifications.size} notifications?`)) return;
-        
+
         for (const id of Array.from(selectedNotifications)) {
             await deleteNotification(id);
         }
@@ -347,13 +347,12 @@ export function EnhancedWorkInbox() {
                             return (
                                 <div
                                     key={notification.id}
-                                    className={`bg-white rounded-lg border transition-all ${
-                                        isSelected
+                                    className={`bg-white rounded-lg border transition-all ${isSelected
                                             ? 'border-blue-500 shadow-md'
                                             : notification.is_read
-                                            ? 'border-gray-200'
-                                            : 'border-blue-200 bg-blue-50/30'
-                                    } hover:shadow-md`}
+                                                ? 'border-gray-200'
+                                                : 'border-blue-200 bg-blue-50/30'
+                                        } hover:shadow-md`}
                                 >
                                     <div className="p-4">
                                         <div className="flex items-start gap-4">
@@ -374,14 +373,12 @@ export function EnhancedWorkInbox() {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between gap-4">
                                                     <div className="flex-1 min-w-0">
-                                                        <h3 className={`text-sm font-semibold ${
-                                                            notification.is_read ? 'text-gray-700' : 'text-gray-900'
-                                                        }`}>
+                                                        <h3 className={`text-sm font-semibold ${notification.is_read ? 'text-gray-700' : 'text-gray-900'
+                                                            }`}>
                                                             {notification.title}
                                                         </h3>
-                                                        <p className={`text-sm mt-1 ${
-                                                            notification.is_read ? 'text-gray-500' : 'text-gray-700'
-                                                        }`}>
+                                                        <p className={`text-sm mt-1 ${notification.is_read ? 'text-gray-500' : 'text-gray-700'
+                                                            }`}>
                                                             {notification.body}
                                                         </p>
                                                         <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">

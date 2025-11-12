@@ -41,7 +41,7 @@ export function EnhancedMessagingModule() {
     const [loading, setLoading] = useState(false);
     const [composing, setComposing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    
+
     // Compose form state
     const [recipient, setRecipient] = useState<Employee | null>(null);
     const [subject, setSubject] = useState('');
@@ -113,7 +113,7 @@ export function EnhancedMessagingModule() {
             setSubject('');
             setBody('');
             setPriority('normal');
-            
+
             // Reload messages
             await loadMessages();
         } catch (error) {
@@ -126,16 +126,16 @@ export function EnhancedMessagingModule() {
 
     async function handleSelectMessage(message: Message) {
         setSelectedMessage(message);
-        
+
         // Mark as read if unread
         if (!message.is_read) {
             try {
                 // Mark notification as read (inbox notification associated with this message)
                 // This would require getting the notification_id from the message
                 // For now, we'll just update local state
-                setMessages(prev => 
-                    prev.map(m => 
-                        m.message_id === message.message_id 
+                setMessages(prev =>
+                    prev.map(m =>
+                        m.message_id === message.message_id
                             ? { ...m, is_read: true, read_at: new Date().toISOString() }
                             : m
                     )
@@ -232,9 +232,8 @@ export function EnhancedMessagingModule() {
                                 <button
                                     key={message.message_id}
                                     onClick={() => handleSelectMessage(message)}
-                                    className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${
-                                        selectedMessage?.message_id === message.message_id ? 'bg-blue-50' : ''
-                                    } ${!message.is_read ? 'bg-blue-50/30' : ''}`}
+                                    className={`w-full p-4 text-left hover:bg-gray-50 transition-colors ${selectedMessage?.message_id === message.message_id ? 'bg-blue-50' : ''
+                                        } ${!message.is_read ? 'bg-blue-50/30' : ''}`}
                                 >
                                     <div className="flex items-start gap-3">
                                         <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -242,18 +241,16 @@ export function EnhancedMessagingModule() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center justify-between gap-2">
-                                                <span className={`text-sm font-semibold truncate ${
-                                                    message.is_read ? 'text-gray-700' : 'text-gray-900'
-                                                }`}>
+                                                <span className={`text-sm font-semibold truncate ${message.is_read ? 'text-gray-700' : 'text-gray-900'
+                                                    }`}>
                                                     {message.sender_name}
                                                 </span>
                                                 <span className="text-xs text-gray-500 flex-shrink-0">
                                                     {formatDistanceToNow(new Date(message.sent_at), { addSuffix: true })}
                                                 </span>
                                             </div>
-                                            <p className={`text-sm mt-1 truncate ${
-                                                message.is_read ? 'text-gray-600' : 'text-gray-900 font-medium'
-                                            }`}>
+                                            <p className={`text-sm mt-1 truncate ${message.is_read ? 'text-gray-600' : 'text-gray-900 font-medium'
+                                                }`}>
                                                 {message.subject}
                                             </p>
                                             <p className="text-xs text-gray-500 mt-1 truncate">
@@ -480,11 +477,10 @@ export function EnhancedMessagingModule() {
                                     {selectedMessage.subject}
                                 </h2>
                                 {selectedMessage.priority && selectedMessage.priority !== 'normal' && (
-                                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 ${
-                                        selectedMessage.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                                        selectedMessage.priority === 'high' ? 'bg-orange-100 text-orange-800' :
-                                        'bg-blue-100 text-blue-800'
-                                    }`}>
+                                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-4 ${selectedMessage.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                                            selectedMessage.priority === 'high' ? 'bg-orange-100 text-orange-800' :
+                                                'bg-blue-100 text-blue-800'
+                                        }`}>
                                         {selectedMessage.priority.toUpperCase()} PRIORITY
                                     </span>
                                 )}
