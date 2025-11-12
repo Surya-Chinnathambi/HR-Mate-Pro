@@ -18,7 +18,7 @@ from sqlalchemy.orm import selectinload
 from pydantic import BaseModel, Field
 
 from app.database import get_session
-from app.core.security import get_current_user
+from app.core.security import get_current_user, check_permission_for_user
 from app.models import (
     User, Employee, WorkAssignment, TaskStatus, TaskPriority,
     TaskComment, TaskTimeLog, AuditLog, AuditAction
@@ -161,10 +161,14 @@ async def check_task_access(
 # TASK CRUD ENDPOINTS
 # ============================================================================
 
-@router.post("/", response_model=WorkAssignmentResponse, status_code=status.HTTP_201_CREATED)
+from app.core.rbac import require_permission
+
+
+@router.post("/", response_model=WorkAssignmentResponse, status_code=status.HTTP_201_CREATED, dependencies=[Depends(lambda: require_permission("work_assignment", "create"))])
 async def create_work_assignment(
     data: WorkAssignmentCreate,
     employee: Employee = Depends(get_current_employee),
+    current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session)
 ):
     """
@@ -180,12 +184,14 @@ async def create_work_assignment(
             detail=f"Assignee with ID {data.assignee_id} not found"
         )
     
-    # Check if assigner has permission (manager or can assign work)
-    if not employee.is_manager and employee.id != data.assignee_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to assign work to others"
-        )
+    # RBAC check - verify current_user can create a work assignment targeting the assignee
+    await check_permission_for_user(
+        resource="work_assignment",
+        action="create",
+        current_user=current_user,
+        session=session,
+        target_employee_id=data.assignee_id
+    )
     
     # Create work assignment
     task = WorkAssignment(
@@ -910,13 +916,23 @@ async def assign_task_automated(
         if not employee:
             raise HTTPException(status_code=404, detail="Employee record not found")
         
+        # RBAC check for automated assign (ensure current_user can create work_assignment for this assignee)
+        from app.core.security import check_permission_for_user
+        await check_permission_for_user(
+            resource="work_assignment",
+            action="create",
+            current_user=current_user,
+            session=session,
+            target_employee_id=assignee_id
+        )
+
         # Assign task
         result = await TaskAutomationService.assign_task(
             db=session,
             manager_id=employee.id,
-            assignee_id=assignee_id,
             title=title,
-            description=description,
+            description=description or "",
+            assignee_id=assignee_id,
             due_date=due_date,
             priority=priority,
             estimated_hours=estimated_hours

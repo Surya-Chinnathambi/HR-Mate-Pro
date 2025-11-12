@@ -12,7 +12,7 @@ from app.database import get_async_session
 from app.models import User
 from app.models.ai_chat import ConversationHistory
 from app.models.attendance import AttendanceDay
-from app.core.security import get_current_active_user
+from app.core.security import get_current_active_user, check_permission_for_user
 from app.config import settings
 from app.services.attendance_automation import AttendanceAutomationService
 from app.services.wfh_automation import WFHAutomationService
@@ -447,17 +447,25 @@ async def ai_chat(
                 stmt = select(Employee).where(Employee.user_id == current_user.id)
                 result = await session.execute(stmt)
                 employee = result.scalar_one_or_none()
-                
+
                 if employee:
-                    # Execute automated clock in
-                    automated_action_result = await AttendanceAutomationService.clock_in(
-                        db=session,
-                        employee_id=employee.id,
-                        user_lat=None,  # TODO: Get from frontend if available
-                        user_lng=None,
-                        device_info="AI Chatbot",
-                        office_location="mumbai"
-                    )
+                        # RBAC: ensure user can clock in for themselves
+                        await check_permission_for_user(
+                            resource="attendance",
+                            action="clock_in",
+                            current_user=current_user,
+                            session=session,
+                            target_employee_id=employee.id
+                        )
+                        # Execute automated clock in
+                        automated_action_result = await AttendanceAutomationService.clock_in(
+                            db=session,
+                            employee_id=employee.id,
+                            user_lat=None,  # TODO: Get from frontend if available
+                            user_lng=None,
+                            device_info="AI Chatbot",
+                            office_location="mumbai"
+                        )
                     
             elif any(word in prompt.lower() for word in ["clock out", "check out", "punch out", "checkout", "clock me out"]):
                 # Get employee from user
@@ -467,6 +475,14 @@ async def ai_chat(
                 employee = result.scalar_one_or_none()
                 
                 if employee:
+                    # RBAC: ensure user can clock out for themselves
+                    await check_permission_for_user(
+                        resource="attendance",
+                        action="clock_out",
+                        current_user=current_user,
+                        session=session,
+                        target_employee_id=employee.id
+                    )
                     # Execute automated clock out
                     automated_action_result = await AttendanceAutomationService.clock_out(
                         db=session,
@@ -1142,6 +1158,15 @@ async def submit_leave_application(
                 "message": f"Invalid date format. Use YYYY-MM-DD"
             }
         
+        # RBAC: ensure user can submit leave application for themselves
+        await check_permission_for_user(
+            resource="leave_application",
+            action="create",
+            current_user=current_user,
+            session=session,
+            target_employee_id=employee.id
+        )
+
         # Submit leave application
         result = await LeaveAutomationService.submit_leave_application(
             db=session,

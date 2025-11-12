@@ -3,6 +3,9 @@ This folder contains raw SQL migration scripts created by the assistant.
 0001_create_notifications_schema.sql - Core schema for notifications, RBAC, inbox, tasks, leave, audit logs,
 and websocket connections. Includes PL/pgSQL trigger functions that emit PostgreSQL NOTIFY events.
 
+0002_seed_role_permissions.sql - Seeds the role_permissions table with default RBAC rules for employee,
+manager, hr, and admin roles with appropriate scopes (own/team/department/all).
+
 How to apply (development):
 1. Set your DATABASE_URL environment variable:
    - Windows (PowerShell): $env:DATABASE_URL = "postgresql://user:pass@localhost:5432/dbname"

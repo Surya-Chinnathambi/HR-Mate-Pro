@@ -202,12 +202,15 @@ class TaskAutomationService:
         manager_id: int,
         title: str,
         description: str,
-        assigned_to_id: int,
+        assignee_id: int,
         due_date: date,
         priority: str = "medium",
         estimated_hours: Optional[float] = None
     ) -> Dict[str, Any]:
-        """Assign task to team member (manager function)"""
+        """Assign task to team member (manager function)
+
+        Note: uses `assigner_id` / `assignee_id` field names consistent with WorkAssignment model.
+        """
         from app.models import Employee
         from app.models.workflow import WorkAssignment, TaskPriority, TaskStatus
         
@@ -224,10 +227,10 @@ class TaskAutomationService:
             }
         
         # Check if assignee exists and reports to manager
-        stmt = select(Employee).where(Employee.id == assigned_to_id)
+        stmt = select(Employee).where(Employee.id == assignee_id)
         result = await db.execute(stmt)
         assignee = result.scalar_one_or_none()
-        
+
         if not assignee:
             return {
                 "success": False,
@@ -240,12 +243,13 @@ class TaskAutomationService:
             task = WorkAssignment(
                 title=title,
                 description=description,
-                assigned_by_id=manager_id,
-                assigned_to_id=assigned_to_id,
-                status=TaskStatus.TODO,
+                assigner_id=manager_id,
+                assignee_id=assignee_id,
+                status=TaskStatus.NOT_STARTED,
                 priority=TaskPriority(priority.lower()),
                 due_date=due_date,
                 estimated_hours=estimated_hours,
+                assigned_date=date.today(),
                 created_at=datetime.utcnow()
             )
         except ValueError:
@@ -267,7 +271,7 @@ class TaskAutomationService:
                 "id": assignee.id,
                 "name": f"{assignee.first_name} {assignee.last_name}"
             },
-            "due_date": due_date.isoformat(),
+            "due_date": due_date.isoformat() if due_date else None,
             "priority": priority
         }
     
