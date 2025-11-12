@@ -119,10 +119,10 @@ export const api = {
 
     // Attendance
     attendance: {
-        checkIn: (data?: { location?: string; notes?: string }) =>
-            apiClient.post('/attendance/check-in', data),
-        checkOut: (data?: { location?: string; notes?: string }) =>
-            apiClient.post('/attendance/check-out', data),
+        checkIn: (params: { employee_id: number; check_in_time?: string }) =>
+            apiClient.post('/attendance/check-in', null, { params }),
+        checkOut: (params: { employee_id: number; check_out_time?: string; location?: string; notes?: string }) =>
+            apiClient.post('/attendance/check-out', null, { params }),
         getRecords: (params?: { start_date?: string; end_date?: string; employee_id?: number }) =>
             apiClient.get('/attendance/records', { params }),
         getStats: (params?: { start_date?: string; end_date?: string }) =>

@@ -11,7 +11,7 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend
 } from "recharts";
-import apiClient from "../api/client";
+import apiClient, { api } from "../api/client";
 
 interface EmployeeDashboardContentProps {
     employee: any;
@@ -26,21 +26,47 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
     const [todayHours, setTodayHours] = useState(0);
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState('');
-    const [isSendingMessage, setIsSendingMessage] = useState(false);    // Fetch initial data
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+    // Helper to get the numeric employee ID (not the string employee_id like "EMP1004")
+    const getEmployeeNumericId = () => {
+        // Backend expects the numeric 'id' field, not the string 'employee_id' field
+        if (!employee) return null;
+        
+        // Check if id exists and is a number
+        if (typeof employee.id === 'number') {
+            return employee.id;
+        }
+        
+        // Fallback: try to find a numeric field
+        // Some APIs might use different field names
+        if (typeof employee.employee_number === 'number') {
+            return employee.employee_number;
+        }
+        
+        // Debug: log the employee object to see what fields are available
+        console.error('❌ Cannot find numeric employee ID in employee object:', employee);
+        console.log('Available fields:', Object.keys(employee));
+        
+        return null;
+    };
+
+    // Fetch initial data
     useEffect(() => {
         const fetchData = async () => {
-            if (!employee?.employee_id) return;
+            const empId = getEmployeeNumericId();
+            if (!empId) return;
 
             try {
                 // Fetch attendance history
                 const attendanceRes = await apiClient.get('/attendance/history', {
-                    params: { employee_id: employee.employee_id }
+                    params: { employee_id: empId }
                 }).catch(() => ({ data: [] }));
                 setAttendanceData(attendanceRes?.data || []);
 
                 // Check if clocked in today
                 const todayAttendance = await apiClient.get('/attendance/today', {
-                    params: { employee_id: employee.employee_id }
+                    params: { employee_id: empId }
                 }).catch(() => ({ data: null }));
 
                 const today = todayAttendance?.data;
@@ -76,7 +102,7 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
             }
         };
 
-        if (employee) {
+        if (employee && getEmployeeNumericId()) {
             fetchData();
             // Refresh messages every 10 seconds
             const interval = setInterval(() => {
@@ -94,9 +120,12 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
     useEffect(() => {
         if (clockStatus === 'clocked-in') {
             const interval = setInterval(async () => {
+                const empId = getEmployeeNumericId();
+                if (!empId) return;
+
                 try {
                     const todayAttendance = await apiClient.get('/attendance/today', {
-                        params: { employee_id: employee.employee_id }
+                        params: { employee_id: empId }
                     });
 
                     const today = todayAttendance?.data;
@@ -119,7 +148,8 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
     }, [clockStatus, employee]);
 
     const handleClockAction = async () => {
-        if (!employee?.employee_id) {
+        const empId = getEmployeeNumericId();
+        if (!empId) {
             alert('Employee information not available. Please refresh the page.');
             return;
         }
@@ -127,21 +157,21 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
         setIsClockingIn(true);
         try {
             if (clockStatus === 'clocked-out') {
-                await apiClient.post('/attendance/check-in', null, {
-                    params: { employee_id: employee.employee_id }
+                await api.attendance.checkIn({
+                    employee_id: empId
                 });
                 setClockStatus('clocked-in');
                 setTodayHours(0);
             } else {
-                await apiClient.post('/attendance/check-out', null, {
-                    params: { employee_id: employee.employee_id }
+                await api.attendance.checkOut({
+                    employee_id: empId
                 });
                 setClockStatus('clocked-out');
             }
 
             // Refresh attendance data
             const res = await apiClient.get('/attendance/history', {
-                params: { employee_id: employee.employee_id }
+                params: { employee_id: empId }
             });
             setAttendanceData(res?.data || []);
         } catch (error: any) {
@@ -151,9 +181,7 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
         } finally {
             setIsClockingIn(false);
         }
-    };
-
-    const handleSendMessage = async () => {
+    }; const handleSendMessage = async () => {
         if (!newMessage.trim() || isSendingMessage) return;
 
         setIsSendingMessage(true);

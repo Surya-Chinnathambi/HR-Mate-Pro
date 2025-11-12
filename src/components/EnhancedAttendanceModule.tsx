@@ -158,7 +158,12 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                 }
             }
 
-            const response = await api.attendance.checkIn({ location });
+            // Get employee_id from current user or fetch from current endpoint
+            const empId = currentUser?.employee_id || (await api.employees.current()).data.employee_id;
+
+            const response = await api.attendance.checkIn({
+                employee_id: Number(empId)
+            });
 
             toast.success('✅ Checked in successfully!');
             await loadTodayStatus();
@@ -190,7 +195,13 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                 }
             }
 
-            const response = await api.attendance.checkOut({ location });
+            // Get employee_id from current user or fetch from current endpoint
+            const empId = currentUser?.employee_id || (await api.employees.current()).data.employee_id;
+
+            const response = await api.attendance.checkOut({
+                employee_id: Number(empId),
+                location
+            });
 
             toast.success('👋 Checked out successfully!');
             await loadTodayStatus();
