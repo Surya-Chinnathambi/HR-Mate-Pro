@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 // Import all your existing components
-import { EmployeeDashboard } from "./EmployeeDashboard";
+import { EmployeeDashboardContent } from "./EmployeeDashboardContent";
 import { AttendanceModule } from "./AttendanceModule";
 import { LeaveModule } from "./LeaveModule";
 import { PayrollModule } from "./PayrollModule";
@@ -137,7 +137,7 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
       id: "dashboard",
       label: "Home",
       icon: Home,
-      component: EmployeeDashboard,
+      component: EmployeeDashboardContent,
       color: "from-blue-500 to-cyan-500"
     },
     {
@@ -283,13 +283,13 @@ export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardP
       } else if (userRole === 'hr') {
         return <AnalyticsDashboard />;
       }
-      return <EmployeeDashboard employee={employee || null} />;
+      return <EmployeeDashboardContent employee={employee || null} />;
     }
 
     const Component = activeItem.component;
 
     // Pass employee prop only to components that accept it
-    if (Component === EmployeeDashboard || Component === ProfileModule) {
+    if (Component === EmployeeDashboardContent || Component === ProfileModule) {
       return <Component employee={employee || null} />;
     }
 

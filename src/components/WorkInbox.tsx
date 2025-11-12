@@ -682,7 +682,7 @@ Please acknowledge that you have read and understood these updates.`
             </AccordionSummary>
             <AccordionDetails>
                 <Grid container spacing={2}>
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <Typography variant="caption" gutterBottom>Status</Typography>
                         <Stack spacing={0.5}>
                             {['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED', 'UNDER_REVIEW', 'COMPLETED'].map((status) => (
@@ -708,7 +708,7 @@ Please acknowledge that you have read and understood these updates.`
                         </Stack>
                     </Grid>
 
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <Typography variant="caption" gutterBottom>Priority</Typography>
                         <Stack spacing={0.5}>
                             {['low', 'medium', 'high', 'urgent'].map((priority) => (
@@ -740,7 +740,7 @@ Please acknowledge that you have read and understood these updates.`
                         </Stack>
                     </Grid>
 
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <Typography variant="caption" gutterBottom>Date Range</Typography>
                         <Stack spacing={1}>
                             <TextField
@@ -770,7 +770,7 @@ Please acknowledge that you have read and understood these updates.`
                         </Stack>
                     </Grid>
 
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <Typography variant="caption" gutterBottom>Options</Typography>
                         <Stack spacing={1}>
                             <FormControlLabel
@@ -827,7 +827,7 @@ Please acknowledge that you have read and understood these updates.`
                 ) : (
                     <Grid container spacing={2}>
                         {filteredTasks.map((task) => (
-                            <Grid item xs={12} key={task.task_id}>
+                            <Grid size={{ xs: 12 }} key={task.task_id}>
                                 <Card
                                     sx={{
                                         cursor: 'pointer',
@@ -936,7 +936,7 @@ Please acknowledge that you have read and understood these updates.`
                         ))}
 
                         {hasMore && (
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <Box display="flex" justifyContent="center" p={2}>
                                     <Button
                                         variant="outlined"
@@ -1003,7 +1003,7 @@ Please acknowledge that you have read and understood these updates.`
                                 Status & Progress
                             </Typography>
                             <Grid container spacing={2}>
-                                <Grid item xs={6}>
+                                <Grid size={{ xs: 6 }}>
                                     <FormControl fullWidth size="small">
                                         <InputLabel>Status</InputLabel>
                                         <Select
@@ -1019,7 +1019,7 @@ Please acknowledge that you have read and understood these updates.`
                                         </Select>
                                     </FormControl>
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid size={{ xs: 6 }}>
                                     <Typography variant="caption" gutterBottom>
                                         Progress: {selectedTask.progress_percentage}%
                                     </Typography>
@@ -1043,7 +1043,7 @@ Please acknowledge that you have read and understood these updates.`
                             </Typography>
                             <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
                                 <Grid container spacing={2}>
-                                    <Grid item xs={6}>
+                                    <Grid size={{ xs: 6 }}>
                                         <Typography variant="caption" color="text.secondary">
                                             Assigned to
                                         </Typography>
@@ -1051,7 +1051,7 @@ Please acknowledge that you have read and understood these updates.`
                                             {selectedTask.assignee_name || 'Unknown'}
                                         </Typography>
                                     </Grid>
-                                    <Grid item xs={6}>
+                                    <Grid size={{ xs: 6 }}>
                                         <Typography variant="caption" color="text.secondary">
                                             Assigned by
                                         </Typography>
@@ -1059,7 +1059,7 @@ Please acknowledge that you have read and understood these updates.`
                                             {selectedTask.assigner_name || 'Unknown'}
                                         </Typography>
                                     </Grid>
-                                    <Grid item xs={6}>
+                                    <Grid size={{ xs: 6 }}>
                                         <Typography variant="caption" color="text.secondary">
                                             Due Date
                                         </Typography>
@@ -1069,7 +1069,7 @@ Please acknowledge that you have read and understood these updates.`
                                                 : 'No due date'}
                                         </Typography>
                                     </Grid>
-                                    <Grid item xs={6}>
+                                    <Grid size={{ xs: 6 }}>
                                         <Typography variant="caption" color="text.secondary">
                                             Hours (Actual / Estimated)
                                         </Typography>
@@ -1118,7 +1118,7 @@ Please acknowledge that you have read and understood these updates.`
                             </Typography>
                             <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
                                 <Grid container spacing={2} mb={2}>
-                                    <Grid item xs={4}>
+                                    <Grid size={{ xs: 4 }}>
                                         <TextField
                                             label="Date"
                                             type="date"
@@ -1129,7 +1129,7 @@ Please acknowledge that you have read and understood these updates.`
                                             onChange={(e) => setTimeLogForm({ ...timeLogForm, date: e.target.value })}
                                         />
                                     </Grid>
-                                    <Grid item xs={4}>
+                                    <Grid size={{ xs: 4 }}>
                                         <TextField
                                             label="Hours"
                                             type="number"
@@ -1140,7 +1140,7 @@ Please acknowledge that you have read and understood these updates.`
                                             onChange={(e) => setTimeLogForm({ ...timeLogForm, hours: parseFloat(e.target.value) })}
                                         />
                                     </Grid>
-                                    <Grid item xs={4}>
+                                    <Grid size={{ xs: 4 }}>
                                         <Button
                                             variant="contained"
                                             fullWidth
@@ -1150,7 +1150,7 @@ Please acknowledge that you have read and understood these updates.`
                                             Log Time
                                         </Button>
                                     </Grid>
-                                    <Grid item xs={12}>
+                                    <Grid size={{ xs: 12 }}>
                                         <TextField
                                             label="Description (optional)"
                                             size="small"
@@ -1274,7 +1274,7 @@ Please acknowledge that you have read and understood these updates.`
                     </Alert>
                 ) : (
                     <Grid container spacing={3}>
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                             <Alert severity="info" icon={<AiIcon />}>
                                 💡 Tip: Use the AI Assistant (purple sparkle button in header) to generate broadcast messages.
                                 Just say "send this message to all managers" and the AI will help you compose it!
@@ -1283,7 +1283,7 @@ Please acknowledge that you have read and understood these updates.`
 
                         {/* Template Selector */}
                         {useTemplate && (
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <FormControl fullWidth>
                                     <InputLabel>Select Template</InputLabel>
                                     <Select
@@ -1307,7 +1307,7 @@ Please acknowledge that you have read and understood these updates.`
                         )}
 
                         {/* Recipients Selection */}
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <FormControl fullWidth>
                                 <InputLabel>Recipients</InputLabel>
                                 <Select
@@ -1344,7 +1344,7 @@ Please acknowledge that you have read and understood these updates.`
                         </Grid>
 
                         {/* Schedule Option */}
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <Box display="flex" gap={1}>
                                 <TextField
                                     type="date"
@@ -1368,7 +1368,7 @@ Please acknowledge that you have read and understood these updates.`
 
                         {/* Team Selection (if specific_teams) */}
                         {broadcastRecipients === 'specific_teams' && (
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <FormControl fullWidth>
                                     <InputLabel>Select Teams</InputLabel>
                                     <Select
@@ -1398,7 +1398,7 @@ Please acknowledge that you have read and understood these updates.`
 
                         {/* Custom Recipients (if custom) */}
                         {broadcastRecipients === 'custom' && (
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <FormControl fullWidth>
                                     <InputLabel>Select Recipients</InputLabel>
                                     <Select
@@ -1433,7 +1433,7 @@ Please acknowledge that you have read and understood these updates.`
                         )}
 
                         {/* Message Editor */}
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                             <TextField
                                 fullWidth
                                 multiline
@@ -1447,7 +1447,7 @@ Please acknowledge that you have read and understood these updates.`
                         </Grid>
 
                         {/* File Attachments */}
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                             <Box>
                                 <input
                                     accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
@@ -1484,7 +1484,7 @@ Please acknowledge that you have read and understood these updates.`
                         </Grid>
 
                         {/* Message Preview */}
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                             <Paper elevation={2} sx={{ p: 2, bgcolor: 'grey.50' }}>
                                 <Typography variant="caption" color="text.secondary" gutterBottom display="block">
                                     <strong>📱 Preview:</strong>

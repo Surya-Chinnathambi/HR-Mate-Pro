@@ -170,6 +170,7 @@ const ManagerDashboard: React.FC = () => {
     // State Management
     const [loading, setLoading] = useState(true);
     const [teamWorkload, setTeamWorkload] = useState<WorkloadData[]>([]);
+    const [teamTasks, setTeamTasks] = useState<any[]>([]); // Tasks assigned to team members
     const [pendingApprovals, setPendingApprovals] = useState<ApprovalRequest[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [teamAnalytics, setTeamAnalytics] = useState<any>(null);
@@ -211,17 +212,19 @@ const ManagerDashboard: React.FC = () => {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const [workloadRes, approvalsRes, notificationsRes, analyticsRes] = await Promise.all([
+            const [workloadRes, approvalsRes, notificationsRes, analyticsRes, teamTasksRes] = await Promise.all([
                 apiClient.get('/work-assignments/analytics/workload', { params: { includeDetails: true } }),
                 apiClient.get('/approvals/pending'),
                 apiClient.get('/notifications', { params: { limit: 10 } }),
                 apiClient.get('/approvals/metrics'),
+                apiClient.get('/work-assignments/team/tasks'), // Fetch all team tasks
             ]);
 
             setTeamWorkload(workloadRes.data.team_workload || []);
             setPendingApprovals(approvalsRes.data || []);
             setNotifications(notificationsRes.data || []);
             setTeamAnalytics(analyticsRes.data || null);
+            setTeamTasks(teamTasksRes.data || []);
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
         } finally {
@@ -359,7 +362,7 @@ const ManagerDashboard: React.FC = () => {
                 ) : (
                     <Grid container spacing={2}>
                         {teamWorkload.map((member) => (
-                            <Grid item xs={12} md={6} key={member.employee_id}>
+                            <Grid size={{ xs: 12, md: 6 }} key={member.employee_id}>
                                 <Card
                                     variant="outlined"
                                     sx={{
@@ -474,7 +477,7 @@ const ManagerDashboard: React.FC = () => {
                         ))}
 
                         {teamWorkload.length === 0 && (
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <Alert severity="info">No team members found. Make sure employees have reporting_manager_id set to your employee ID.</Alert>
                             </Grid>
                         )}
@@ -483,6 +486,215 @@ const ManagerDashboard: React.FC = () => {
             </CardContent>
         </Card>
     );
+
+    // ============================================================================
+    // RENDER: TEAM TASKS SECTION (AI & Manual Assignments)
+    // ============================================================================
+
+    const renderTeamTasksSection = () => {
+        const getStatusColor = (status: string): string => {
+            const colors: Record<string, string> = {
+                'NOT_STARTED': '#757575',
+                'IN_PROGRESS': '#1976d2',
+                'COMPLETED': '#2e7d32',
+                'BLOCKED': '#d32f2f',
+                'ON_HOLD': '#f57c00',
+            };
+            return colors[status] || '#757575';
+        };
+
+        const getStatusIcon = (status: string) => {
+            switch (status) {
+                case 'COMPLETED': return '✓';
+                case 'IN_PROGRESS': return '⟳';
+                case 'BLOCKED': return '⚠';
+                case 'ON_HOLD': return '⏸';
+                default: return '○';
+            }
+        };
+
+        // Group tasks by assignee
+        const tasksByAssignee = teamTasks.reduce((acc: any, task: any) => {
+            const assigneeId = task.assignee_id;
+            if (!acc[assigneeId]) {
+                acc[assigneeId] = {
+                    assignee_name: task.assignee_name,
+                    tasks: [],
+                };
+            }
+            acc[assigneeId].tasks.push(task);
+            return acc;
+        }, {});
+
+        return (
+            <Card>
+                <CardHeader
+                    title={
+                        <Box display="flex" alignItems="center" gap={1}>
+                            <AssignmentIcon />
+                            <Typography variant="h6">Team Tasks Overview</Typography>
+                            <Badge badgeContent={teamTasks.length} color="primary" sx={{ ml: 1 }} />
+                            <Chip
+                                icon={<AIIcon />}
+                                label="AI + Manual"
+                                size="small"
+                                color="secondary"
+                                sx={{ ml: 1 }}
+                            />
+                        </Box>
+                    }
+                    action={
+                        <IconButton onClick={fetchDashboardData}>
+                            <RefreshIcon />
+                        </IconButton>
+                    }
+                />
+                <CardContent>
+                    {loading ? (
+                        <Stack spacing={1}>
+                            {[1, 2, 3].map((i) => (
+                                <Skeleton key={i} variant="rectangular" height={80} />
+                            ))}
+                        </Stack>
+                    ) : teamTasks.length === 0 ? (
+                        <Alert severity="info">
+                            No tasks found for your team. Assign work to team members to see them here.
+                        </Alert>
+                    ) : (
+                        <Stack spacing={2}>
+                            {Object.entries(tasksByAssignee).map(([assigneeId, data]: any) => (
+                                <Paper key={assigneeId} sx={{ p: 2, bgcolor: 'grey.50' }}>
+                                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                                        <Box display="flex" alignItems="center" gap={1}>
+                                            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                                                {data.assignee_name.charAt(0)}
+                                            </Avatar>
+                                            <Typography variant="subtitle2" fontWeight="bold">
+                                                {data.assignee_name}
+                                            </Typography>
+                                            <Chip label={`${data.tasks.length} tasks`} size="small" />
+                                        </Box>
+                                        <Chip
+                                            label={`${data.tasks.filter((t: any) => t.status === 'COMPLETED').length} / ${data.tasks.length} completed`}
+                                            size="small"
+                                            color="success"
+                                            variant="outlined"
+                                        />
+                                    </Box>
+                                    <Stack spacing={1}>
+                                        {data.tasks.map((task: any) => (
+                                            <Paper
+                                                key={task.id}
+                                                sx={{
+                                                    p: 1.5,
+                                                    borderLeft: `4px solid ${getPriorityColor(task.priority)}`,
+                                                    '&:hover': { bgcolor: 'background.paper', boxShadow: 1 },
+                                                }}
+                                            >
+                                                <Box display="flex" justifyContent="space-between" alignItems="start">
+                                                    <Box flex={1}>
+                                                        <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                                                            <Typography variant="body2" fontWeight="bold">
+                                                                {getStatusIcon(task.status)} {task.title}
+                                                            </Typography>
+                                                            {task.assigner_name === 'AI System' && (
+                                                                <Chip
+                                                                    icon={<AIIcon />}
+                                                                    label="AI Assigned"
+                                                                    size="small"
+                                                                    color="secondary"
+                                                                    sx={{ height: 20 }}
+                                                                />
+                                                            )}
+                                                        </Box>
+                                                        {task.description && (
+                                                            <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                                                                {task.description.substring(0, 100)}
+                                                                {task.description.length > 100 && '...'}
+                                                            </Typography>
+                                                        )}
+                                                        <Box display="flex" gap={0.5} flexWrap="wrap">
+                                                            <Chip
+                                                                label={task.status.replace('_', ' ')}
+                                                                size="small"
+                                                                sx={{
+                                                                    height: 20,
+                                                                    fontSize: '0.7rem',
+                                                                    bgcolor: getStatusColor(task.status),
+                                                                    color: 'white',
+                                                                }}
+                                                            />
+                                                            <Chip
+                                                                label={task.priority}
+                                                                size="small"
+                                                                sx={{
+                                                                    height: 20,
+                                                                    fontSize: '0.7rem',
+                                                                    bgcolor: getPriorityColor(task.priority),
+                                                                    color: 'white',
+                                                                }}
+                                                            />
+                                                            {task.due_date && (
+                                                                <Chip
+                                                                    icon={<TimeIcon sx={{ fontSize: '0.8rem' }} />}
+                                                                    label={`Due: ${new Date(task.due_date).toLocaleDateString()}`}
+                                                                    size="small"
+                                                                    sx={{ height: 20, fontSize: '0.7rem' }}
+                                                                />
+                                                            )}
+                                                            {task.estimated_hours > 0 && (
+                                                                <Chip
+                                                                    label={`Est: ${task.estimated_hours}h`}
+                                                                    size="small"
+                                                                    sx={{ height: 20, fontSize: '0.7rem' }}
+                                                                />
+                                                            )}
+                                                            {task.actual_hours > 0 && (
+                                                                <Chip
+                                                                    label={`Logged: ${task.actual_hours}h`}
+                                                                    size="small"
+                                                                    color="info"
+                                                                    sx={{ height: 20, fontSize: '0.7rem' }}
+                                                                />
+                                                            )}
+                                                        </Box>
+                                                    </Box>
+                                                    <Box ml={2}>
+                                                        <CircularProgress
+                                                            variant="determinate"
+                                                            value={task.progress_percentage || 0}
+                                                            size={40}
+                                                            thickness={5}
+                                                        />
+                                                        <Typography
+                                                            variant="caption"
+                                                            sx={{
+                                                                position: 'absolute',
+                                                                right: 0,
+                                                                top: '50%',
+                                                                transform: 'translate(-50%, -50%)',
+                                                            }}
+                                                        >
+                                                            {task.progress_percentage || 0}%
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                                {task.project_name && (
+                                                    <Typography variant="caption" color="primary" display="block" mt={0.5}>
+                                                        📁 {task.project_name}
+                                                    </Typography>
+                                                )}
+                                            </Paper>
+                                        ))}
+                                    </Stack>
+                                </Paper>
+                            ))}
+                        </Stack>
+                    )}
+                </CardContent>
+            </Card>
+        );
+    };
 
     // ============================================================================
     // RENDER: APPROVAL QUEUE SECTION
@@ -702,7 +914,7 @@ const ManagerDashboard: React.FC = () => {
 
         return (
             <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardHeader title="Team Utilization" />
                         <CardContent>
@@ -721,12 +933,12 @@ const ManagerDashboard: React.FC = () => {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardHeader title="Approval Statistics" />
                         <CardContent>
                             <Grid container spacing={2}>
-                                <Grid item xs={6}>
+                                <Grid size={{ xs: 6 }}>
                                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                                         <Typography variant="h4" color="primary">
                                             {teamAnalytics.pending || 0}
@@ -734,7 +946,7 @@ const ManagerDashboard: React.FC = () => {
                                         <Typography variant="caption">Pending</Typography>
                                     </Paper>
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid size={{ xs: 6 }}>
                                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                                         <Typography variant="h4" color="success.main">
                                             {teamAnalytics.approved || 0}
@@ -742,7 +954,7 @@ const ManagerDashboard: React.FC = () => {
                                         <Typography variant="caption">Approved</Typography>
                                     </Paper>
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid size={{ xs: 6 }}>
                                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                                         <Typography variant="h4" color="error.main">
                                             {teamAnalytics.rejected || 0}
@@ -750,7 +962,7 @@ const ManagerDashboard: React.FC = () => {
                                         <Typography variant="caption">Rejected</Typography>
                                     </Paper>
                                 </Grid>
-                                <Grid item xs={6}>
+                                <Grid size={{ xs: 6 }}>
                                     <Paper sx={{ p: 2, textAlign: 'center' }}>
                                         <Typography variant="h4">
                                             {teamAnalytics.avg_response_time_hours
@@ -937,7 +1149,7 @@ const ManagerDashboard: React.FC = () => {
                     </FormControl>
 
                     <Grid container spacing={2}>
-                        <Grid item xs={6}>
+                        <Grid size={{ xs: 6 }}>
                             <FormControl fullWidth>
                                 <InputLabel>Priority</InputLabel>
                                 <Select
@@ -951,7 +1163,7 @@ const ManagerDashboard: React.FC = () => {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={6}>
+                        <Grid size={{ xs: 6 }}>
                             <TextField
                                 label="Estimated Hours"
                                 type="number"
@@ -1065,23 +1277,28 @@ const ManagerDashboard: React.FC = () => {
 
             <Grid container spacing={3}>
                 {/* Top Row: Team Workload */}
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                     {renderTeamHierarchy()}
                 </Grid>
 
-                {/* Second Row: Approvals & Assignments */}
-                <Grid item xs={12} md={8}>
-                    {renderApprovalQueue()}
+                {/* Second Row: Team Tasks & Assignments */}
+                <Grid size={{ xs: 12, md: 8 }}>
+                    {renderTeamTasksSection()}
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                     {renderWorkAssignmentForm()}
                     <Box mt={2}>
                         {renderNotifications()}
                     </Box>
                 </Grid>
 
-                {/* Third Row: Analytics */}
-                <Grid item xs={12}>
+                {/* Third Row: Approvals */}
+                <Grid size={{ xs: 12 }}>
+                    {renderApprovalQueue()}
+                </Grid>
+
+                {/* Fourth Row: Analytics */}
+                <Grid size={{ xs: 12 }}>
                     {renderTeamAnalytics()}
                 </Grid>
             </Grid>

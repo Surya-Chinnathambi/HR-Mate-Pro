@@ -308,7 +308,7 @@ const AnalyticsDashboard: React.FC = () => {
                 <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
                     <Grid container spacing={2} alignItems="center">
                         {/* Date Presets */}
-                        <Grid item xs={12} md={4}>
+                        <Grid size={{ xs: 12, md: 4 }}>
                             <FormControl fullWidth size="small">
                                 <InputLabel>Date Range</InputLabel>
                                 <Select
@@ -329,7 +329,7 @@ const AnalyticsDashboard: React.FC = () => {
                         {/* Custom Date Range */}
                         {datePreset === 'custom' && (
                             <>
-                                <Grid item xs={12} md={3}>
+                                <Grid size={{ xs: 12, md: 3 }}>
                                     <DatePicker
                                         label="Start Date"
                                         value={startDate}
@@ -337,7 +337,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         slotProps={{ textField: { fullWidth: true, size: 'small' } }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={3}>
+                                <Grid size={{ xs: 12, md: 3 }}>
                                     <DatePicker
                                         label="End Date"
                                         value={endDate}
@@ -349,7 +349,7 @@ const AnalyticsDashboard: React.FC = () => {
                         )}
 
                         {/* Department Filter */}
-                        <Grid item xs={12} md={datePreset === 'custom' ? 2 : 4}>
+                        <Grid size={{ xs: 12, md: datePreset === 'custom' ? 2 : 4 }}>
                             <FormControl fullWidth size="small">
                                 <InputLabel>Department</InputLabel>
                                 <Select
@@ -367,7 +367,7 @@ const AnalyticsDashboard: React.FC = () => {
                             </FormControl>
                         </Grid>
 
-                        <Grid item xs={12} md={datePreset === 'custom' ? 12 : 4}>
+                        <Grid size={{ xs: 12, md: datePreset === 'custom' ? 12 : 4 }}>
                             <Typography variant="caption" color="textSecondary">
                                 Showing data from {format(startDate, 'MMM dd, yyyy')} to {format(endDate, 'MMM dd, yyyy')}
                             </Typography>
@@ -406,7 +406,7 @@ const AnalyticsDashboard: React.FC = () => {
                         <TabPanel value={activeTab} index={0}>
                             <Grid container spacing={3}>
                                 {/* Key Metrics Row */}
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Total Tasks',
                                         productivityData.total_tasks,
@@ -416,7 +416,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.primary
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Completion Rate',
                                         `${productivityData.completion_rate.toFixed(1)}%`,
@@ -426,7 +426,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.success
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Avg Completion Time',
                                         `${productivityData.avg_completion_time_hours.toFixed(1)}h`,
@@ -436,7 +436,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.warning
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Approval Rate',
                                         `${approvalData?.approval_rate.toFixed(1)}%`,
@@ -448,7 +448,7 @@ const AnalyticsDashboard: React.FC = () => {
                                 </Grid>
 
                                 {/* Task Trends Chart */}
-                                <Grid item xs={12} md={8}>
+                                <Grid size={{ xs: 12, md: 8 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom>
@@ -497,7 +497,7 @@ const AnalyticsDashboard: React.FC = () => {
                                 </Grid>
 
                                 {/* Task Distribution Pie Chart */}
-                                <Grid item xs={12} md={4}>
+                                <Grid size={{ xs: 12, md: 4 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom>
@@ -513,7 +513,7 @@ const AnalyticsDashboard: React.FC = () => {
                                                         cx="50%"
                                                         cy="50%"
                                                         labelLine={false}
-                                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                                        label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
                                                         outerRadius={80}
                                                         fill="#8884d8"
                                                         dataKey="value"
@@ -530,7 +530,7 @@ const AnalyticsDashboard: React.FC = () => {
                                 </Grid>
 
                                 {/* Workload Distribution */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -566,7 +566,7 @@ const AnalyticsDashboard: React.FC = () => {
                         <TabPanel value={activeTab} index={1}>
                             <Grid container spacing={3}>
                                 {/* Metrics */}
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Overdue Tasks',
                                         `${productivityData.overdue_percentage.toFixed(1)}%`,
@@ -576,7 +576,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.error
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'High Priority',
                                         productivityData.tasks_by_priority?.HIGH || 0,
@@ -586,7 +586,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.warning
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'In Progress',
                                         productivityData.tasks_by_status?.IN_PROGRESS || 0,
@@ -596,7 +596,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.info
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Blocked Tasks',
                                         productivityData.tasks_by_status?.BLOCKED || 0,
@@ -608,7 +608,7 @@ const AnalyticsDashboard: React.FC = () => {
                                 </Grid>
 
                                 {/* Team Member Performance Table */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom>
@@ -660,7 +660,7 @@ const AnalyticsDashboard: React.FC = () => {
                         <TabPanel value={activeTab} index={2}>
                             <Grid container spacing={3}>
                                 {/* Approval Metrics */}
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Total Processed',
                                         approvalData?.total_approvals || 0,
@@ -670,7 +670,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.primary
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Avg Turnaround',
                                         `${approvalData?.avg_turnaround_hours.toFixed(1)}h`,
@@ -680,7 +680,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.info
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'SLA Compliance',
                                         `${approvalData?.sla_compliance_rate.toFixed(1)}%`,
@@ -690,7 +690,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.success
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Escalation Rate',
                                         `${approvalData?.escalation_rate.toFixed(1)}%`,
@@ -702,7 +702,7 @@ const AnalyticsDashboard: React.FC = () => {
                                 </Grid>
 
                                 {/* Turnaround by Type Chart */}
-                                <Grid item xs={12} md={6}>
+                                <Grid size={{ xs: 12, md: 6 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom>
@@ -731,7 +731,7 @@ const AnalyticsDashboard: React.FC = () => {
                                 </Grid>
 
                                 {/* Approver Performance */}
-                                <Grid item xs={12} md={6}>
+                                <Grid size={{ xs: 12, md: 6 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom>
@@ -767,7 +767,7 @@ const AnalyticsDashboard: React.FC = () => {
                         <TabPanel value={activeTab} index={3}>
                             <Grid container spacing={3}>
                                 {/* Workload Metrics */}
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Avg Utilization',
                                         `${workloadData?.avg_utilization.toFixed(1)}%`,
@@ -777,7 +777,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.primary
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Overloaded',
                                         workloadData?.overloaded_employees?.length || 0,
@@ -787,7 +787,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.error
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Underutilized',
                                         workloadData?.underutilized_employees?.length || 0,
@@ -797,7 +797,7 @@ const AnalyticsDashboard: React.FC = () => {
                                         COLORS.warning
                                     )}
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={3}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     {renderMetricCard(
                                         'Balance Score',
                                         `${workloadData?.balance_score.toFixed(0)}/100`,
@@ -810,7 +810,7 @@ const AnalyticsDashboard: React.FC = () => {
 
                                 {/* Overloaded Employees List */}
                                 {workloadData?.overloaded_employees?.length > 0 && (
-                                    <Grid item xs={12} md={6}>
+                                    <Grid size={{ xs: 12, md: 6 }}>
                                         <Card elevation={2}>
                                             <CardContent>
                                                 <Typography variant="h6" gutterBottom color="error">
@@ -851,7 +851,7 @@ const AnalyticsDashboard: React.FC = () => {
 
                                 {/* Underutilized Employees List */}
                                 {workloadData?.underutilized_employees?.length > 0 && (
-                                    <Grid item xs={12} md={6}>
+                                    <Grid size={{ xs: 12, md: 6 }}>
                                         <Card elevation={2}>
                                             <CardContent>
                                                 <Typography variant="h6" gutterBottom color="primary">
@@ -895,7 +895,7 @@ const AnalyticsDashboard: React.FC = () => {
                         {/* Departments Tab */}
                         <TabPanel value={activeTab} index={4}>
                             <Grid container spacing={3}>
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom>
@@ -916,7 +916,7 @@ const AnalyticsDashboard: React.FC = () => {
                                     </Card>
                                 </Grid>
 
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Card elevation={2}>
                                         <CardContent>
                                             <Typography variant="h6" gutterBottom>

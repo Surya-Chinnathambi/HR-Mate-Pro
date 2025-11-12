@@ -361,7 +361,7 @@ async def add_reaction(
     await manager.broadcast({
         "type": "reaction_added",
         "message_id": message_id,
-        "emoji": emoji,
+        "emoji": request.emoji,
         "employee_id": employee.id,
         "reactions": reactions
     })

@@ -3,7 +3,7 @@ Attendance Automation Service
 Handles automated clock in/out with geo-location, duplicate detection, and notifications
 """
 from datetime import datetime, time, timedelta
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import math

@@ -1,465 +1,676 @@
-import { useEffect, useState, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import apiClient from "../api/client";
-import { toast } from "react-hot-toast";
-import { format, startOfMonth, endOfMonth, differenceInHours, differenceInMinutes } from "date-fns";
-import { GroupChat } from "./GroupChat";
+import {
+  Home, Clock, Calendar, TrendingUp, CreditCard, Headphones, Grid,
+  Users, DollarSign, FileText, Building, MessageCircle,
+  ChevronDown, ChevronRight, User, Lock, LogOut, Palette, Moon, Sun,
+  Archive, Bell, BarChart3, Target, ThumbsUp, Menu, X, Sparkles
+} from "lucide-react";
 
-interface EmployeeDashboardProps {
-  employee: any | null;
+// Import all your existing components
+import { EmployeeDashboardContent } from "./EmployeeDashboardContent";
+import { AttendanceModule } from "./AttendanceModule";
+import { LeaveModule } from "./LeaveModule";
+import { PayrollModule } from "./PayrollModule";
+import { ProfileModule } from "./ProfileModule";
+import { MyTeamModule } from "./MyTeamModule";
+import { PerformanceModule } from "./PerformanceModule";
+import { ExpensesModule } from "./ExpensesModule";
+import { MyFinancesModule } from "./MyFinancesModule";
+import { HelpdeskModule } from "./HelpdeskModule";
+import { AppsModule } from "./AppsModule";
+import { EngageModule } from "./EngageModule";
+import { OrganizationTreeModule } from "./OrganizationTreeModule";
+import { OrganizationDirectory } from "./OrganizationDirectory";
+import { AICommandCenter } from "./AICommandCenter";
+import { CompanyPoliciesModule } from "./CompanyPoliciesModule";
+import { ChangePasswordModal } from "./ChangePasswordModal";
+import { ThemePickerModal } from "./ThemePickerModal";
+// Import new manager/analytics components
+import ManagerDashboard from "./ManagerDashboard";
+import WorkInbox from "./WorkInbox";
+import ApprovalQueue from "./ApprovalQueue";
+import AnalyticsDashboard from "./AnalyticsDashboard";
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: any;
+  component?: React.ComponentType<any>;
+  subItems?: MenuItem[];
+  badge?: number | string;
+  color?: string;
 }
 
-export function EmployeeDashboard({ employee }: EmployeeDashboardProps) {
-  const [todayAttendance, setTodayAttendance] = useState<any | null>(null);
-  const [leaveBalance, setLeaveBalance] = useState<any[] | null>(null);
-  const [monthAttendance, setMonthAttendance] = useState<any[]>([]);
-  const [upcomingLeaves, setUpcomingLeaves] = useState<any[]>([]);
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+interface EnhancedHRMSDashboardProps {
+  user?: any;
+  onLogout?: () => void;
+}
+
+export function EnhancedHRMSDashboard({ user, onLogout }: EnhancedHRMSDashboardProps = {}) {
+  const [activeModule, setActiveModule] = useState("dashboard");
+  const [isAIOpen, setIsAIOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [showGroupChat, setShowGroupChat] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState("blue-purple");
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
-  // Swipe states
-  const [clockInSwipeX, setClockInSwipeX] = useState(0);
-  const [clockOutSwipeX, setClockOutSwipeX] = useState(0);
-  const [isClockInDragging, setIsClockInDragging] = useState(false);
-  const [isClockOutDragging, setIsClockOutDragging] = useState(false);
-  const clockInRef = useRef<HTMLDivElement>(null);
-  const clockOutRef = useRef<HTMLDivElement>(null);
-
-  // Update current time every second
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // Replace Convex hooks with REST API calls
+  const [employee, setEmployee] = useState<any | null>(null);
+  const [notifications, setNotifications] = useState<any>(null);
+  const [userRole, setUserRole] = useState<'employee' | 'manager' | 'hr'>('employee');
 
   useEffect(() => {
-    if (!employee) return;
+    let mounted = true;
 
     const fetchData = async () => {
       try {
-        setLoading(true);
-        const today = new Date();
-        const monthStart = format(startOfMonth(today), 'yyyy-MM-dd');
-        const monthEnd = format(endOfMonth(today), 'yyyy-MM-dd');
-
-        const [attRes, leaveRes, monthAttRes, upcomingLeavesRes] = await Promise.all([
-          apiClient.get('/attendance/today', { params: { employee_id: employee.id } }),
-          apiClient.get('/leaves/balance', { params: { employee_id: employee.id, year: new Date().getFullYear() } }),
-          apiClient.get('/attendance/history', {
-            params: {
-              employee_id: employee.id,
-              start_date: monthStart,
-              end_date: monthEnd
-            }
-          }).catch(() => ({ data: [] })),
-          apiClient.get('/leaves/applications', {
-            params: {
-              employee_id: employee.id,
-              status: 'approved'
-            }
-          }).catch(() => ({ data: [] }))
+        const [empRes, notifRes] = await Promise.all([
+          apiClient.get('/employees/current'),
+          apiClient.get('/realtime/notifications')
         ]);
 
-        setTodayAttendance(attRes.data ?? null);
-        setLeaveBalance(leaveRes.data ?? null);
-        setMonthAttendance(monthAttRes.data ?? []);
-        setUpcomingLeaves(upcomingLeavesRes.data?.slice(0, 3) ?? []);
+        if (!mounted) return;
 
-        // Mock recent activities (can be replaced with real API)
-        setRecentActivities([
-          { type: 'clock_in', time: '09:00 AM', date: format(today, 'MMM dd') },
-          { type: 'leave_applied', time: '03:30 PM', date: format(new Date(today.getTime() - 86400000), 'MMM dd') },
-          { type: 'clock_out', time: '06:00 PM', date: format(new Date(today.getTime() - 86400000), 'MMM dd') }
-        ]);
+        // Use snake_case fields from backend directly (Option B)
+        const emp = empRes?.data ?? null;
+        setEmployee(emp);
 
+        // Set user role and default module based on employee role
+        if (emp?.role) {
+          const role = emp.role.toLowerCase();
+          console.log('🔍 Employee Role Debug:', {
+            raw: emp.role,
+            lowercase: role,
+            willSetAs: role as 'employee' | 'manager' | 'hr'
+          });
+          setUserRole(role as 'employee' | 'manager' | 'hr');
+
+          // Set default dashboard based on role
+          if (role === 'manager') {
+            console.log('✅ Setting manager default module: team-dashboard');
+            setActiveModule('team-dashboard');
+          } else if (role === 'hr') {
+            console.log('✅ Setting HR default module: analytics');
+            setActiveModule('analytics');
+          } else {
+            console.log('✅ Setting employee default module: dashboard');
+            setActiveModule('dashboard');
+          }
+        } else {
+          console.log('⚠️ No role found on employee object:', emp);
+        }
+
+        const notifs = notifRes?.data ?? { notifications: [], unreadCount: 0 };
+        setNotifications(notifs);
       } catch (err: any) {
-        console.error('Failed to load dashboard data', err);
-        toast.error('Failed to load some dashboard data');
-      } finally {
-        setLoading(false);
+        if (err.response?.status === 404) {
+          // Employee not found — keep employee as null and let UI handle setup
+          setEmployee(null);
+        } else {
+          console.error('Failed to fetch initial data', err);
+        }
       }
     };
 
     fetchData();
-  }, [employee]);
 
-  // Swipe constants
-  const SWIPE_THRESHOLD = 0.75; // 75% of container width triggers action
+    return () => { mounted = false; };
+  }, []);
 
-  // Mouse event handlers
+  // Update time every second
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isClockInDragging) {
-        if (!clockInRef.current) return;
-        const rect = clockInRef.current.getBoundingClientRect();
-        const offsetX = e.clientX - rect.left;
-        const containerWidth = rect.width;
-        const newX = Math.max(0, Math.min(offsetX, containerWidth));
-        setClockInSwipeX(newX);
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-        if (newX / containerWidth >= SWIPE_THRESHOLD && !todayAttendance?.checkIn) {
-          handleClockIn();
-          setIsClockInDragging(false);
-          setTimeout(() => setClockInSwipeX(0), 300);
-        }
-      }
-
-      if (isClockOutDragging) {
-        if (!clockOutRef.current) return;
-        const rect = clockOutRef.current.getBoundingClientRect();
-        const offsetX = e.clientX - rect.left;
-        const containerWidth = rect.width;
-        const newX = Math.max(0, Math.min(offsetX, containerWidth));
-        setClockOutSwipeX(newX);
-
-        if (newX / containerWidth >= SWIPE_THRESHOLD && todayAttendance?.checkIn && !todayAttendance?.checkOut) {
-          handleClockOut();
-          setIsClockOutDragging(false);
-          setTimeout(() => setClockOutSwipeX(0), 300);
-        }
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsClockInDragging(false);
-      setIsClockOutDragging(false);
-      setClockInSwipeX(0);
-      setClockOutSwipeX(0);
-    };
-
-    if (isClockInDragging || isClockOutDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
+  // Menu structure - Same for all roles with filtered visibility
+  const menuItems: MenuItem[] = [
+    {
+      id: "dashboard",
+      label: "Home",
+      icon: Home,
+      component: EmployeeDashboardContent,
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      id: "me",
+      label: "Me",
+      icon: User,
+      color: "from-purple-500 to-pink-500",
+      subItems: [
+        { id: "attendance", label: "Attendance", icon: Clock, component: AttendanceModule },
+        { id: "leave", label: "Leave", icon: Calendar, component: LeaveModule },
+        { id: "performance", label: "Performance", icon: TrendingUp, component: PerformanceModule },
+        { id: "expenses", label: "Expenses & Travel", icon: CreditCard, component: ExpensesModule },
+        { id: "helpdesk", label: "Helpdesk", icon: Headphones, component: HelpdeskModule },
+        { id: "apps", label: "Apps", icon: Grid, component: AppsModule }
+      ]
+    },
+    {
+      id: "work-inbox",
+      label: "Work Inbox",
+      icon: Target,
+      badge: notifications?.unreadCount,
+      component: WorkInbox,
+      color: "from-orange-500 to-red-500"
+    },
+    {
+      id: "my-team",
+      label: "My Team",
+      icon: Users,
+      color: "from-indigo-500 to-purple-500",
+      component: ManagerDashboard,
+      subItems: [
+        { id: "team-dashboard", label: "Manager Dashboard", icon: BarChart3, component: ManagerDashboard },
+        { id: "team-summary", label: "Summary", icon: Users, component: MyTeamModule },
+        { id: "approval-queue", label: "Approvals", icon: ThumbsUp, component: ApprovalQueue },
+        { id: "team-calendar", label: "Team Calendar", icon: Calendar },
+        { id: "peers", label: "Peers", icon: Users }
+      ]
+    },
+    {
+      id: "analytics",
+      label: "Analytics",
+      icon: BarChart3,
+      color: "from-cyan-500 to-blue-500",
+      component: AnalyticsDashboard
+    },
+    {
+      id: "my-finances",
+      label: "My Finances",
+      icon: DollarSign,
+      color: "from-green-500 to-teal-500",
+      subItems: [
+        { id: "payroll", label: "Payroll", icon: DollarSign, component: PayrollModule },
+        { id: "tax-docs", label: "Tax Docs", icon: FileText, component: MyFinancesModule }
+      ]
+    },
+    {
+      id: "org",
+      label: "Org",
+      icon: Building,
+      color: "from-emerald-500 to-green-500",
+      subItems: [
+        { id: "directory", label: "Employee Directory", icon: Users, component: OrganizationDirectory },
+        { id: "org-tree", label: "Organization Tree", icon: Building, component: OrganizationTreeModule }
+      ]
+    },
+    {
+      id: "engage",
+      label: "Engage",
+      icon: MessageCircle,
+      color: "from-pink-500 to-rose-500",
+      component: EngageModule,
+      subItems: [
+        { id: "posts", label: "Posts", icon: MessageCircle, component: EngageModule },
+        { id: "polls", label: "Polls", icon: BarChart3 },
+        { id: "praise", label: "Praise", icon: ThumbsUp }
+      ]
+    },
+    {
+      id: "performance-main",
+      label: "Performance",
+      icon: Target,
+      color: "from-teal-500 to-cyan-500",
+      subItems: [
+        { id: "my-goals", label: "My Goals", icon: Target },
+        { id: "feedback", label: "Feedback", icon: MessageCircle },
+        { id: "reviews", label: "Reviews", icon: FileText }
+      ]
+    },
+    {
+      id: "policies",
+      label: "Company Policies",
+      icon: FileText,
+      component: CompanyPoliciesModule,
+      color: "from-slate-500 to-gray-600"
     }
-  }, [isClockInDragging, isClockOutDragging, todayAttendance, SWIPE_THRESHOLD]);
+  ];
 
-  const handleClockIn = async () => {
-    if (!employee) return;
-    try {
-      await apiClient.post('/attendance/check-in', null, { params: { employee_id: employee.id } });
-      toast.success('Clocked in successfully!');
-      const res = await apiClient.get('/attendance/today', { params: { employee_id: employee.id } });
-      setTodayAttendance(res.data ?? null);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to clock in');
+  // All menus visible to all roles - no filtering needed
+  // Role-based data filtering happens within each component (Analytics, etc.)
+  const filteredMenuItems = useMemo(() => {
+    console.log('🔄 Menu items - All visible for role:', userRole);
+    // All users see all menus
+    return menuItems;
+  }, [userRole]);
+
+  const handleMenuClick = (menuId: string) => {
+    if (openMenu === menuId) {
+      setOpenMenu(null);
+    } else {
+      setOpenMenu(menuId);
     }
   };
 
-  const handleClockOut = async () => {
-    if (!employee) return;
-    try {
-      await apiClient.post('/attendance/check-out', null, { params: { employee_id: employee.id } });
-      toast.success('Clocked out successfully!');
-      const res = await apiClient.get('/attendance/today', { params: { employee_id: employee.id } });
-      setTodayAttendance(res.data ?? null);
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to clock out');
-    }
+  const handleModuleChange = (moduleId: string) => {
+    setActiveModule(moduleId);
   };
 
+  const getPageTitle = () => {
+    for (const item of filteredMenuItems) {
+      if (item.id === activeModule) return item.label;
+      if (item.subItems) {
+        const subItem = item.subItems.find(sub => sub.id === activeModule);
+        if (subItem) return subItem.label;
+      }
+    }
+    return "Dashboard";
+  };
+
+  // Your existing render logic
+  const renderActiveModule = () => {
+    // Handle profile module specially
+    if (activeModule === "profile") {
+      return employee ? <ProfileModule employee={employee} /> : <div>Loading...</div>;
+    }
+
+    const activeItem = filteredMenuItems.find(item => item.id === activeModule) ||
+      filteredMenuItems.flatMap(item => item.subItems || []).find(item => item.id === activeModule);
+
+    if (!activeItem?.component) {
+      // Default dashboard based on role
+      if (userRole === 'manager') {
+        return <ManagerDashboard />;
+      } else if (userRole === 'hr') {
+        return <AnalyticsDashboard />;
+      }
+      return <EmployeeDashboardContent employee={employee || null} />;
+    }
+
+    const Component = activeItem.component;
+
+    // Pass employee prop only to components that accept it
+    if (Component === EmployeeDashboardContent || Component === ProfileModule) {
+      return <Component employee={employee || null} />;
+    }
+
+    // Render without props for other components
+    return <Component />;
+  };
+
+  // Loading state
   if (!employee) {
-    return <div className="p-6">Loading...</div>;
-  }
-
-  if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">Loading dashboard...</div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-800 font-semibold text-lg mb-2">Setting up your workspace...</p>
+          <p className="text-gray-600 text-sm">Creating your employee profile • Usually takes 5-10 seconds</p>
+        </div>
       </div>
     );
   }
 
-  // Calculate month statistics
-  const monthStats = monthAttendance.reduce(
-    (acc: any, att: any) => {
-      if (att.checkIn && att.checkOut) {
-        const hours = differenceInHours(new Date(att.checkOut), new Date(att.checkIn));
-        const minutes = differenceInMinutes(new Date(att.checkOut), new Date(att.checkIn)) % 60;
-        acc.totalHours += hours + minutes / 60;
-        acc.daysPresent += 1;
-      }
-      return acc;
-    },
-    { totalHours: 0, daysPresent: 0 }
-  );
-
-  const avgHours = monthStats.daysPresent > 0 ? (monthStats.totalHours / monthStats.daysPresent).toFixed(1) : 0;
-
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Header with Date & Time */}
-      <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 dark:from-blue-600 dark:via-purple-600 dark:to-pink-600 p-8 rounded-2xl text-white shadow-xl">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Welcome back, {employee.first_name}! 👋</h1>
-            <p className="text-blue-100 text-lg">{format(currentTime, 'EEEE, MMMM dd, yyyy')}</p>
-          </div>
-          <div className="text-right">
-            <div className="text-5xl font-bold">{format(currentTime, 'HH:mm')}</div>
-            <div className="text-blue-100 text-sm">{format(currentTime, 'ss')} sec</div>
-          </div>
-        </div>
-      </div>
+    <div className={`min-h-screen ${isDarkMode ? 'dark' : ''}`}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:bg-gradient-to-br dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 transition-colors duration-300">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Swipe to Clock In/Out */}
-          <div className="space-y-4">
-            {/* Clock In Swipe */}
-            {!todayAttendance?.checkIn ? (
-              <div
-                ref={clockInRef}
-                className="relative bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl overflow-hidden cursor-pointer select-none shadow-lg border-2 border-green-200 dark:border-green-700"
-                onMouseDown={(e) => {
-                  if (todayAttendance?.checkIn) return;
-                  setIsClockInDragging(true);
-                  e.preventDefault();
-                }}
-                onTouchStart={(e) => {
-                  if (todayAttendance?.checkIn) return;
-                  setIsClockInDragging(true);
-                  e.preventDefault();
-                }}
+        {/* Top Header */}
+        <header className="fixed top-0 left-0 right-0 h-20 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 z-50 shadow-lg">
+          <div className="h-full px-6 flex items-center justify-between">
+            {/* Left - Logo & Menu Toggle */}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
               >
-                {/* Progress Background */}
-                <div
-                  className="absolute inset-0 bg-gradient-to-r from-green-400 to-green-600 transition-all duration-200"
-                  style={{
-                    width: clockInRef.current ? `${(clockInSwipeX / clockInRef.current.offsetWidth) * 100}%` : '0%',
-                    opacity: 0.3
-                  }}
-                />
-
-                {/* Content */}
-                <div className="relative z-10 p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl shadow-lg">
-                      ▶
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-green-700 dark:text-green-300">Swipe to Clock In →</p>
-                      <p className="text-sm text-green-600 dark:text-green-400">Start your workday</p>
-                    </div>
+                {isSidebarCollapsed ? (
+                  <Menu className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                ) : (
+                  <X className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                )}
+              </button>
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <span className="text-white text-2xl font-bold">H</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                      HRMS Pro
+                    </h1>
+                    {/* Role Badge */}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${userRole === 'hr'
+                      ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
+                      : userRole === 'manager'
+                        ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
+                        : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
+                      }`}>
+                      {userRole}
+                    </span>
                   </div>
-                  <div className="text-green-600 dark:text-green-400 text-4xl animate-pulse">➜</div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Human Resource Management</p>
                 </div>
               </div>
-            ) : (
-              <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-6 border-2 border-green-500 dark:border-green-600 shadow-lg">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl">
-                    ✓
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-green-700 dark:text-green-300">Clocked In</p>
-                    <p className="text-sm text-green-600 dark:text-green-400">
-                      {todayAttendance?.checkIn && new Date(todayAttendance.checkIn).toString() !== 'Invalid Date'
-                        ? format(new Date(todayAttendance.checkIn), 'hh:mm a')
-                        : 'N/A'}
-                    </p>
-                  </div>
+            </div>
+
+            {/* Center - Time & Date */}
+            <div className="hidden md:flex items-center text-center">
+              <div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {currentTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {currentTime.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric'
+                  })}
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Clock Out Swipe */}
-            {todayAttendance?.checkIn && !todayAttendance?.checkOut ? (
-              <div
-                ref={clockOutRef}
-                className="relative bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-2xl overflow-hidden cursor-pointer select-none shadow-lg border-2 border-red-200 dark:border-red-700"
-                onMouseDown={(e) => {
-                  if (!todayAttendance?.checkIn || todayAttendance?.checkOut) return;
-                  setIsClockOutDragging(true);
-                  e.preventDefault();
-                }}
-                onTouchStart={(e) => {
-                  if (!todayAttendance?.checkIn || todayAttendance?.checkOut) return;
-                  setIsClockOutDragging(true);
-                  e.preventDefault();
-                }}
+            {/* Right - Actions & User Menu */}
+            <div className="flex items-center space-x-3">
+              {/* AI Assistant Button */}
+              <button
+                onClick={() => setIsAIOpen(true)}
+                className="relative bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                {/* Progress Background */}
-                <div
-                  className="absolute inset-0 bg-gradient-to-r from-red-400 to-red-600 transition-all duration-200"
-                  style={{
-                    width: clockOutRef.current ? `${(clockOutSwipeX / clockOutRef.current.offsetWidth) * 100}%` : '0%',
-                    opacity: 0.3
-                  }}
-                />
+                <Sparkles className="w-5 h-5" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              </button>
 
-                {/* Content */}
-                <div className="relative z-10 p-6 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center text-white text-2xl shadow-lg">
-                      ◼
+              {/* Notifications */}
+              <button
+                onClick={() => {
+                  handleModuleChange("inbox");
+                  setOpenMenu("inbox");
+                }}
+                className="relative p-3 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
+              >
+                <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                {notifications?.unreadCount && notifications.unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                    {notifications.unreadCount > 9 ? '9+' : notifications.unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* User Profile Menu */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-3 p-2 pr-4 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                >
+                  <img
+                    src={employee.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${employee.first_name}`}
+                    alt={employee.first_name}
+                    className="w-10 h-10 rounded-full border-2 border-blue-500 shadow-md"
+                  />
+                  <div className="text-left hidden lg:block">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {employee.first_name} {employee.last_name}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {employee.designation}
+                    </p>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 dark:text-gray-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* User Dropdown */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {employee.first_name} {employee.last_name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {employee.email}
+                      </p>
                     </div>
-                    <div>
-                      <p className="text-xl font-bold text-red-700 dark:text-red-300">Swipe to Clock Out →</p>
-                      <p className="text-sm text-red-600 dark:text-red-400">End your workday</p>
+
+                    <button
+                      onClick={() => {
+                        handleModuleChange("profile");
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                    >
+                      <User className="w-4 h-4" />
+                      <span className="text-sm">View Profile</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsChangePasswordOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                    >
+                      <Lock className="w-4 h-4" />
+                      <span className="text-sm">Change Password</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsThemePickerOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                    >
+                      <Palette className="w-4 h-4" />
+                      <span className="text-sm">Color Theme Picker</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setIsDarkMode(!isDarkMode);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-gray-700 dark:text-gray-300"
+                    >
+                      <div className="flex items-center space-x-3">
+                        {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                        <span className="text-sm">{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+                      </div>
+                      <div className={`w-10 h-5 rounded-full transition-colors ${isDarkMode ? 'bg-blue-600' : 'bg-gray-300'} relative`}>
+                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isDarkMode ? 'translate-x-5' : 'translate-x-0.5'}`}></div>
+                      </div>
+                    </button>
+
+                    <div className="border-t border-gray-200 dark:border-gray-800 mt-2"></div>
+
+                    <button
+                      onClick={() => {
+                        console.log("Logout");
+                        onLogout?.();
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-600 dark:text-red-400"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span className="text-sm font-semibold">Logout</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Sidebar */}
+        <aside
+          onMouseEnter={() => setIsSidebarExpanded(true)}
+          onMouseLeave={() => setIsSidebarExpanded(false)}
+          className={`fixed left-0 top-20 h-[calc(100vh-5rem)] bg-white/60 dark:bg-gray-900/60 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 transition-all duration-300 z-40 overflow-y-auto shadow-xl ${isSidebarCollapsed ? '-translate-x-full' : 'translate-x-0'
+            } ${isSidebarExpanded ? 'w-80' : 'w-20'}`}
+        >
+          <nav className="p-4 space-y-2">
+            {filteredMenuItems.map((item) => {
+              const Icon = item.icon;
+              const isOpen = openMenu === item.id;
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const isActive = item.id === activeModule ||
+                (item.subItems?.some(sub => sub.id === activeModule));
+
+              return (
+                <div key={item.id}>
+                  {/* Main Menu Item */}
+                  <button
+                    onClick={() => {
+                      if (hasSubItems) {
+                        handleMenuClick(item.id);
+                      } else {
+                        handleModuleChange(item.id);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group ${isActive
+                      ? `bg-gradient-to-r ${item.color} text-white shadow-lg`
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-800 hover:shadow-md'
+                      }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      <span className={`font-semibold text-sm whitespace-nowrap transition-all duration-300 ${isSidebarExpanded ? 'opacity-100' : 'opacity-0 w-0'
+                        }`}>{item.label}</span>
                     </div>
-                  </div>
-                  <div className="text-red-600 dark:text-red-400 text-4xl animate-pulse">➜</div>
+
+                    <div className={`flex items-center space-x-2 transition-all duration-300 ${isSidebarExpanded ? 'opacity-100' : 'opacity-0 w-0'
+                      }`}>
+                      {item.badge && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isActive
+                          ? 'bg-white text-blue-600'
+                          : 'bg-red-500 text-white'
+                          }`}>
+                          {item.badge}
+                        </span>
+                      )}
+                      {hasSubItems && (
+                        <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''
+                          }`} />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Submenu */}
+                  {hasSubItems && isOpen && isSidebarExpanded && (
+                    <div className="mt-2 ml-4 space-y-1 animate-in slide-in-from-top-2 duration-200">
+                      {item.subItems?.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        const isSubActive = subItem.id === activeModule;
+
+                        return (
+                          <button
+                            key={subItem.id}
+                            onClick={() => handleModuleChange(subItem.id)}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition-all duration-200 ${isSubActive
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-medium shadow-sm'
+                              : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                              }`}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <SubIcon className="w-4 h-4" />
+                              <span className="text-sm">{subItem.label}</span>
+                            </div>
+
+                            {subItem.badge && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isSubActive
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-red-500 text-white'
+                                }`}>
+                                {subItem.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ) : todayAttendance?.checkOut ? (
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-2xl p-6 border-2 border-gray-300 dark:border-gray-600 shadow-lg">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gray-500 rounded-full flex items-center justify-center text-white text-2xl">
-                    ✓
+              );
+            })}
+          </nav>
+
+          {/* Sidebar Footer - Today's Overview */}
+          {isSidebarExpanded && (
+            <div className="p-4 border-t border-gray-200 dark:border-gray-800">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg">
+                <h3 className="font-bold text-base mb-3">Today's Overview</h3>
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-90">Status:</span>
+                    <span className="font-semibold bg-white/20 px-3 py-1 rounded-full">Present</span>
                   </div>
-                  <div>
-                    <p className="text-xl font-bold text-gray-700 dark:text-gray-300">Clocked Out</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {todayAttendance?.checkOut && new Date(todayAttendance.checkOut).toString() !== 'Invalid Date'
-                        ? format(new Date(todayAttendance.checkOut), 'hh:mm a')
-                        : 'N/A'}
-                    </p>
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-90">Hours:</span>
+                    <span className="font-semibold">8.2h</span>
                   </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Quick Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">📅</span>
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Days Present</h3>
-              </div>
-              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{monthStats.daysPresent}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">This month</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">⏱️</span>
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Avg Hours</h3>
-              </div>
-              <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{avgHours}h</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Per day</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-3xl">🕐</span>
-                <h3 className="font-semibold text-gray-700 dark:text-gray-300">Total Hours</h3>
-              </div>
-              <p className="text-3xl font-bold text-green-600 dark:text-green-400">{monthStats.totalHours.toFixed(1)}h</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">This month</p>
-            </div>
-          </div>
-
-          {/* Recent Activities */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-2xl">📊</span>
-              Recent Activities
-            </h3>
-            <div className="space-y-3">
-              {recentActivities.map((activity, idx) => (
-                <div key={idx} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'clock_in' ? 'bg-green-100 dark:bg-green-900/30 text-green-600' :
-                    activity.type === 'clock_out' ? 'bg-red-100 dark:bg-red-900/30 text-red-600' :
-                      'bg-blue-100 dark:bg-blue-900/30 text-blue-600'
-                    }`}>
-                    {activity.type === 'clock_in' ? '▶' : activity.type === 'clock_out' ? '◼' : '📝'}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {activity.type === 'clock_in' ? 'Clocked In' :
-                        activity.type === 'clock_out' ? 'Clocked Out' :
-                          'Leave Applied'}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{activity.date} at {activity.time}</p>
+                  <div className="flex justify-between items-center">
+                    <span className="opacity-90">Leave Balance:</span>
+                    <span className="font-semibold">12 days</span>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column - Sidebar */}
-        <div className="space-y-6">
-          {/* Leave Balance */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-              <span className="text-2xl">🏖️</span>
-              Leave Balance
-            </h3>
-            {leaveBalance && leaveBalance.length > 0 ? (
-              <div className="space-y-3">
-                {leaveBalance.slice(0, 4).map((lb: any) => (
-                  <div key={lb.leaveType._id} className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg">
-                    <span className="font-medium text-gray-700 dark:text-gray-300">{lb.leaveType.name}</span>
-                    <span className="font-bold text-lg text-blue-600 dark:text-blue-400">{lb.balance.balance}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400 text-center py-4">No leave balance available</p>
-            )}
-          </div>
-
-          {/* Upcoming Leaves */}
-          {upcomingLeaves.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-              <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
-                <span className="text-2xl">📆</span>
-                Upcoming Leaves
-              </h3>
-              <div className="space-y-3">
-                {upcomingLeaves.map((leave: any, idx: number) => (
-                  <div key={idx} className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                    <p className="font-medium text-gray-900 dark:text-white">{leave.leaveType?.name || 'Leave'}</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {leave.startDate && new Date(leave.startDate).toString() !== 'Invalid Date'
-                        ? format(new Date(leave.startDate), 'MMM dd')
-                        : 'N/A'} -
-                      {leave.endDate && new Date(leave.endDate).toString() !== 'Invalid Date'
-                        ? format(new Date(leave.endDate), 'MMM dd')
-                        : 'N/A'}
-                    </p>
-                  </div>
-                ))}
               </div>
             </div>
           )}
+        </aside>
 
-          {/* Quick Actions */}
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Quick Actions</h3>
-            <div className="space-y-2">
-              <button className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                <span>📝</span> Apply Leave
-              </button>
-              <button className="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                <span>💰</span> Submit Expense
-              </button>
-              <button className="w-full py-3 px-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
-                <span>📊</span> View Reports
-              </button>
-              <button
-                onClick={() => setShowGroupChat(!showGroupChat)}
-                className="w-full py-3 px-4 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-              >
-                <span>💬</span> Group Chat
-              </button>
+        {/* Main Content */}
+        <main
+          className={`pt-20 transition-all duration-300 ${isSidebarCollapsed ? 'ml-0' : isSidebarExpanded ? 'ml-80' : 'ml-20'
+            }`}
+        >
+          <div className="p-8">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+                {getPageTitle()}
+              </h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Welcome back, {employee.first_name} {employee.last_name}
+              </p>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Floating Group Chat */}
-      {showGroupChat && employee && (
-        <GroupChat employee={employee} onClose={() => setShowGroupChat(false)} />
-      )}
+            {renderActiveModule()}
+          </div>
+        </main>
+
+        {/* Overlay for mobile */}
+        {!isSidebarCollapsed && (
+          <div
+            className="fixed inset-0 bg-black/50 z-30 lg:hidden top-20"
+            onClick={() => setIsSidebarCollapsed(true)}
+          />
+        )}
+
+        {/* AI Command Center Modal */}
+        {isAIOpen && (
+          <AICommandCenter
+            onClose={() => setIsAIOpen(false)}
+            employee={employee}
+          />
+        )}
+
+        {/* Change Password Modal */}
+        <ChangePasswordModal
+          isOpen={isChangePasswordOpen}
+          onClose={() => setIsChangePasswordOpen(false)}
+          onSubmit={async (currentPassword: string, newPassword: string) => {
+            console.log("Password change:", { currentPassword, newPassword });
+          }}
+        />
+
+        {/* Theme Picker Modal */}
+        <ThemePickerModal
+          isOpen={isThemePickerOpen}
+          onClose={() => setIsThemePickerOpen(false)}
+          currentTheme={currentTheme}
+          onThemeChange={setCurrentTheme}
+        />
+      </div>
     </div>
   );
 }

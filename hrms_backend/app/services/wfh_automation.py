@@ -50,7 +50,7 @@ class WFHAutomationService:
         
         # 1. Check probation status
         if employee.date_of_joining:
-            probation_end = employee.date_of_joining + timedelta(days=PROBATION_PERIOD_MONTHS * 30)
+            probation_end = employee.date_of_joining + timedelta(days=WFHAutomationService.PROBATION_PERIOD_MONTHS * 30)
             if datetime.now().date() < probation_end:
                 eligibility_issues.append({
                     "check": "probation_period",

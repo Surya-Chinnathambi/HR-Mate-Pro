@@ -18,6 +18,7 @@ from enum import Enum
 
 if TYPE_CHECKING:
     from app.models.chat import ChatConversation
+    from app.models.extras import Payroll
 
 
 # ============================================================================

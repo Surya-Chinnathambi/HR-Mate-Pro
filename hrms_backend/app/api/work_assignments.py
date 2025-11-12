@@ -966,3 +966,93 @@ async def get_team_workload_automated(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get team workload: {str(e)}")
 
+
+@router.get("/team/tasks")
+async def get_team_tasks(
+    status: Optional[str] = Query(None, description="Filter by status"),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session)
+):
+    """
+    Get all tasks assigned to team members (for managers to track team progress).
+    Shows tasks assigned BY anyone (including AI) TO the manager's team.
+    """
+    try:
+        # Get manager's employee record
+        stmt = select(Employee).where(Employee.user_id == current_user.id)
+        result = await session.execute(stmt)
+        manager = result.scalar_one_or_none()
+        
+        if not manager:
+            raise HTTPException(status_code=404, detail="Employee record not found")
+        
+        if not manager.is_manager:
+            raise HTTPException(
+                status_code=403,
+                detail="Only managers can view team tasks"
+            )
+        
+        # Get all team members reporting to this manager
+        stmt = select(Employee).where(Employee.reporting_manager_id == manager.id)
+        result = await session.execute(stmt)
+        team_members = result.scalars().all()
+        
+        if not team_members:
+            return []
+        
+        team_member_ids = [member.id for member in team_members]
+        
+        # Get all tasks assigned TO team members
+        conditions = [
+            WorkAssignment.assignee_id.in_(team_member_ids),
+            WorkAssignment.is_deleted == False
+        ]
+        
+        if status:
+            status_list = [s.strip().upper() for s in status.split(',')]
+            conditions.append(WorkAssignment.status.in_(status_list))
+        
+        stmt = (
+            select(WorkAssignment)
+            .where(and_(*conditions))
+            .order_by(WorkAssignment.due_date.asc().nullslast(), WorkAssignment.priority.desc())
+        )
+        
+        result = await session.execute(stmt)
+        tasks = result.scalars().all()
+        
+        # Build response with employee names
+        responses = []
+        for task in tasks:
+            assigner = await session.get(Employee, task.assigner_id)
+            assignee = await session.get(Employee, task.assignee_id)
+            
+            responses.append({
+                "id": task.id,
+                "title": task.title,
+                "description": task.description,
+                "assigner_id": task.assigner_id,
+                "assigner_name": assigner.display_name if assigner else "AI System",
+                "assignee_id": task.assignee_id,
+                "assignee_name": assignee.display_name if assignee else "Unknown",
+                "priority": task.priority.value if hasattr(task.priority, 'value') else str(task.priority),
+                "status": task.status.value if hasattr(task.status, 'value') else str(task.status),
+                "assigned_date": task.assigned_date.isoformat() if task.assigned_date else None,
+                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "estimated_hours": float(task.estimated_hours) if task.estimated_hours else 0,
+                "actual_hours": float(task.actual_hours) if task.actual_hours else 0,
+                "progress_percentage": task.progress_percentage or 0,
+                "project_name": task.project_name,
+                "tags": task.tags,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            })
+        
+        return responses
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get team tasks: {str(e)}")
+
+

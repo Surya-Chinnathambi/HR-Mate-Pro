@@ -18,7 +18,7 @@ if sys.platform.startswith("win"):
 from app.api import (
     auth, employees, attendance, leaves, payroll, realtime, ai, policies, chatbot, 
     work_assignments, approvals, websocket, scheduler as scheduler_api, analytics, 
-    chat, broadcasts, group_chat, performance, onboarding, training, helpdesk
+    chat, broadcasts, group_chat, performance, onboarding, training, helpdesk, activity
 )
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -100,6 +100,7 @@ app.include_router(performance.router, prefix="/api", tags=["Performance"])
 app.include_router(onboarding.router, prefix="/api", tags=["Onboarding"])
 app.include_router(training.router, prefix="/api", tags=["Training"])
 app.include_router(helpdesk.router, prefix="/api", tags=["IT Helpdesk"])
+app.include_router(activity.router, prefix="/api/activity", tags=["Activity Feed"])
 
 # Mount static files for uploaded images
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

@@ -376,7 +376,7 @@ const ApprovalQueue: React.FC = () => {
         return (
             <Grid container spacing={2} mb={3}>
                 {/* Metric Cards */}
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">
@@ -392,7 +392,7 @@ const ApprovalQueue: React.FC = () => {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">
@@ -415,7 +415,7 @@ const ApprovalQueue: React.FC = () => {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">
@@ -438,7 +438,7 @@ const ApprovalQueue: React.FC = () => {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={3}>
+                <Grid size={{ xs: 12, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="caption" color="text.secondary">
@@ -455,7 +455,7 @@ const ApprovalQueue: React.FC = () => {
                 </Grid>
 
                 {/* Charts */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="subtitle2" gutterBottom fontWeight="bold">
@@ -484,7 +484,7 @@ const ApprovalQueue: React.FC = () => {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="subtitle2" gutterBottom fontWeight="bold">
@@ -530,7 +530,7 @@ const ApprovalQueue: React.FC = () => {
             <AccordionDetails>
                 <Grid container spacing={3}>
                     {/* Status Filter */}
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <FormControl component="fieldset">
                             <FormLabel component="legend">Status</FormLabel>
                             <RadioGroup
@@ -558,7 +558,7 @@ const ApprovalQueue: React.FC = () => {
                     </Grid>
 
                     {/* Request Type Filter */}
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <FormControl component="fieldset">
                             <FormLabel component="legend">Request Type</FormLabel>
                             <Stack spacing={0.5}>
@@ -592,7 +592,7 @@ const ApprovalQueue: React.FC = () => {
                     </Grid>
 
                     {/* Date Range */}
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <FormLabel component="legend">Date Range</FormLabel>
                         <Stack spacing={1} mt={1}>
                             <TextField
@@ -617,7 +617,7 @@ const ApprovalQueue: React.FC = () => {
                     </Grid>
 
                     {/* Amount/Days Range */}
-                    <Grid item xs={12} md={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
                         <FormLabel component="legend">Ranges</FormLabel>
                         <Stack spacing={2} mt={1}>
                             <Box>
@@ -654,7 +654,7 @@ const ApprovalQueue: React.FC = () => {
                     </Grid>
 
                     {/* Actions */}
-                    <Grid item xs={12}>
+                    <Grid size={{ xs: 12 }}>
                         <Button
                             onClick={() =>
                                 setFilters({

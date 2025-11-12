@@ -4,7 +4,7 @@ import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
 import EmojiEmotionsIcon from '@mui/icons-material/EmojiEmotions';
 import { format } from 'date-fns';
-import api from '../api/client';
+import apiClient from '../api/client';
 import { toast } from 'react-hot-toast';
 
 interface Message {
@@ -46,7 +46,7 @@ export function GroupChat({ employee, onClose }: GroupChatProps) {
 
         const fetchMessages = async () => {
             try {
-                const response = await api.get('/group-chat/messages', {
+                const response = await apiClient.get('/group-chat/messages', {
                     params: { limit: 50 }
                 });
                 setMessages(response.data);
@@ -119,7 +119,7 @@ export function GroupChat({ employee, onClose }: GroupChatProps) {
 
         setLoading(true);
         try {
-            await api.post('/group-chat/messages', {
+            await apiClient.post('/group-chat/messages', {
                 message: newMessage,
                 message_type: 'text'
             });

@@ -119,7 +119,7 @@ export function AICommandCenter({ onClose, employee }: AICommandCenterProps) {
     setMessages([{
       id: 1,
       type: 'ai',
-      content: `Hello ${name}! I'm Kope, your AI HR Assistant. I can help with attendance, leave, payroll, and more. What would you like to do?`,
+      content: `Hello ${name}! I'm Ellie, your AI HR Assistant. I can help with attendance, leave, payroll, and more. What would you like to do?`,
       timestamp: new Date()
     }]);
   };
@@ -300,7 +300,7 @@ export function AICommandCenter({ onClose, employee }: AICommandCenterProps) {
             <div className='flex items-center gap-3'>
               <div className='bg-white/20 p-2 rounded-lg'><Sparkles className='w-6 h-6 text-white' /></div>
               <div>
-                <h2 className='text-xl font-bold text-white'>Kope AI Assistant</h2>
+                <h2 className='text-xl font-bold text-white'>Ellie AI Assistant</h2>
                 <p className='text-purple-100 text-sm'>Context-Aware AI</p>
               </div>
             </div>

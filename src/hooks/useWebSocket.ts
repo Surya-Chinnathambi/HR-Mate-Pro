@@ -154,7 +154,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         // Register all event handlers
         eventHandlersRef.current.forEach((handlers, event) => {
             handlers.forEach((handler) => {
-                socket.on(event, handler);
+                socket.on(event, handler as (...args: any[]) => void);
             });
         });
     }, [url, reconnectionAttempts, reconnectionDelay]);
