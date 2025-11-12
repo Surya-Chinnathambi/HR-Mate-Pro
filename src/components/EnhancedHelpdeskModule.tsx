@@ -73,7 +73,7 @@ const EnhancedHelpdeskModule: React.FC = () => {
         priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent'
     });
 
-    const { message: wsMessage } = useWebSocket();
+    const { lastMessage: wsMessage } = useWebSocket();
 
     // Load tickets
     const loadTickets = async () => {

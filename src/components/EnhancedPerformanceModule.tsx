@@ -116,7 +116,7 @@ const EnhancedPerformanceModule: React.FC<EnhancedPerformanceModuleProps> = ({ c
         comments: ''
     });
 
-    const { message: wsMessage } = useWebSocket();
+    const { lastMessage: wsMessage } = useWebSocket();
 
     const isManager = currentUser?.role && ['manager', 'hr', 'admin'].includes(currentUser.role.toLowerCase());
 
@@ -237,7 +237,7 @@ const EnhancedPerformanceModule: React.FC<EnhancedPerformanceModuleProps> = ({ c
         }
 
         try {
-            await api.performance.submitFeedback({
+            await api.performance.submitNewFeedback({
                 employee_id: feedbackForm.employee_id,
                 feedback_type: feedbackForm.feedback_type,
                 rating: feedbackForm.rating,

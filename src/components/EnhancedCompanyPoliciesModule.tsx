@@ -68,7 +68,7 @@ const EnhancedCompanyPoliciesModule: React.FC<EnhancedCompanyPoliciesModuleProps
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [filterAcknowledged, setFilterAcknowledged] = useState<string>('all');
 
-    const { message: wsMessage } = useWebSocket();
+    const { lastMessage: wsMessage } = useWebSocket();
 
     const isAdmin = currentUser?.role && ['hr', 'admin'].includes(currentUser.role.toLowerCase());
 
@@ -301,8 +301,8 @@ const EnhancedCompanyPoliciesModule: React.FC<EnhancedCompanyPoliciesModuleProps
                             <div
                                 key={policy.policy_id}
                                 className={`bg-white rounded-lg border p-4 cursor-pointer transition-all ${selectedPolicy?.policy_id === policy.policy_id
-                                        ? 'border-blue-500 shadow-md'
-                                        : 'border-gray-200 hover:border-blue-300 hover:shadow'
+                                    ? 'border-blue-500 shadow-md'
+                                    : 'border-gray-200 hover:border-blue-300 hover:shadow'
                                     }`}
                                 onClick={() => setSelectedPolicy(policy)}
                             >

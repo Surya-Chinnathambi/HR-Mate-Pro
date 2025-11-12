@@ -73,7 +73,7 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
     const [checkOutLoading, setCheckOutLoading] = useState(false);
     const [teamAttendance, setTeamAttendance] = useState<AttendanceRecord[]>([]);
 
-    const { message: wsMessage } = useWebSocket();
+    const { lastMessage: wsMessage } = useWebSocket();
 
     const isManager = currentUser?.role && ['manager', 'hr', 'admin'].includes(currentUser.role.toLowerCase());
 
@@ -371,8 +371,8 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                     <button
                         onClick={() => setView('today')}
                         className={`px-4 py-2 rounded-lg transition-colors ${view === 'today'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         Today
@@ -380,8 +380,8 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                     <button
                         onClick={() => setView('history')}
                         className={`px-4 py-2 rounded-lg transition-colors ${view === 'history'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         History
@@ -389,8 +389,8 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                     <button
                         onClick={() => setView('calendar')}
                         className={`px-4 py-2 rounded-lg transition-colors ${view === 'calendar'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         Calendar
@@ -399,8 +399,8 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                         <button
                             onClick={() => setView('team')}
                             className={`px-4 py-2 rounded-lg transition-colors ${view === 'team'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             Team

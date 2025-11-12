@@ -80,7 +80,7 @@ const EnhancedExpensesModule: React.FC<EnhancedExpensesModuleProps> = ({ current
         receipt: null as File | null
     });
 
-    const { message: wsMessage } = useWebSocket();
+    const { lastMessage: wsMessage } = useWebSocket();
 
     const isManager = currentUser?.role && ['manager', 'hr', 'admin'].includes(currentUser.role.toLowerCase());
 
@@ -173,7 +173,7 @@ const EnhancedExpensesModule: React.FC<EnhancedExpensesModuleProps> = ({ current
         if (!reason) return;
 
         try {
-            await api.expenses.reject(expenseId, { reason });
+            await api.expenses.reject(expenseId, { comments: reason });
             toast.success('Expense rejected');
             loadExpenses();
             setSelectedExpense(null);
@@ -293,8 +293,8 @@ const EnhancedExpensesModule: React.FC<EnhancedExpensesModuleProps> = ({ current
                     <button
                         onClick={() => setView('my-expenses')}
                         className={`px-4 py-2 rounded-lg transition-colors ${view === 'my-expenses'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         My Expenses
@@ -303,8 +303,8 @@ const EnhancedExpensesModule: React.FC<EnhancedExpensesModuleProps> = ({ current
                         <button
                             onClick={() => setView('approvals')}
                             className={`px-4 py-2 rounded-lg transition-colors ${view === 'approvals'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             Approvals

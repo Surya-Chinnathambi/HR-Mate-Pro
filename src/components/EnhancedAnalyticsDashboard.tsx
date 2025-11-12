@@ -83,7 +83,7 @@ const EnhancedAnalyticsDashboard: React.FC = () => {
     const [workloadDistribution, setWorkloadDistribution] = useState<WorkloadDistribution[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const { message: wsMessage } = useWebSocket();
+    const { lastMessage: wsMessage } = useWebSocket();
 
     // Load analytics overview
     const loadOverview = async () => {
@@ -311,8 +311,8 @@ const EnhancedAnalyticsDashboard: React.FC = () => {
                 <button
                     onClick={() => setView('overview')}
                     className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'overview'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     <Activity className="w-5 h-5 inline mr-2" />
@@ -321,8 +321,8 @@ const EnhancedAnalyticsDashboard: React.FC = () => {
                 <button
                     onClick={() => setView('attendance')}
                     className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'attendance'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     <Clock className="w-5 h-5 inline mr-2" />
@@ -331,8 +331,8 @@ const EnhancedAnalyticsDashboard: React.FC = () => {
                 <button
                     onClick={() => setView('leaves')}
                     className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'leaves'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     <Calendar className="w-5 h-5 inline mr-2" />
@@ -341,8 +341,8 @@ const EnhancedAnalyticsDashboard: React.FC = () => {
                 <button
                     onClick={() => setView('performance')}
                     className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'performance'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     <Award className="w-5 h-5 inline mr-2" />
@@ -351,8 +351,8 @@ const EnhancedAnalyticsDashboard: React.FC = () => {
                 <button
                     onClick={() => setView('workload')}
                     className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'workload'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     <BarChart3 className="w-5 h-5 inline mr-2" />
@@ -361,8 +361,8 @@ const EnhancedAnalyticsDashboard: React.FC = () => {
                 <button
                     onClick={() => setView('departments')}
                     className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'departments'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                 >
                     <Users className="w-5 h-5 inline mr-2" />

@@ -94,12 +94,16 @@ export const api = {
             apiClient.get('/team/members', { params }),
         getWorkload: () =>
             apiClient.get('/team/workload'),
-        getAttendance: (params?: { date_from?: string; date_to?: string }) =>
+        getAttendance: (params?: { date_from?: string; date_to?: string; date?: string }) =>
             apiClient.get('/team/attendance', { params }),
-        getLeaves: (params?: { status_filter?: string }) =>
+        getLeaves: (params?: { status_filter?: string; status?: string }) =>
             apiClient.get('/team/leaves', { params }),
         getPerformanceSummary: () =>
             apiClient.get('/team/performance-summary'),
+        getStats: () =>
+            apiClient.get('/team/stats'),
+        getTasks: () =>
+            apiClient.get('/team/tasks'),
     },
 
     // Employees
@@ -117,7 +121,7 @@ export const api = {
     attendance: {
         checkIn: (data?: { location?: string; notes?: string }) =>
             apiClient.post('/attendance/check-in', data),
-        checkOut: (data?: { notes?: string }) =>
+        checkOut: (data?: { location?: string; notes?: string }) =>
             apiClient.post('/attendance/check-out', data),
         getRecords: (params?: { start_date?: string; end_date?: string; employee_id?: number }) =>
             apiClient.get('/attendance/records', { params }),
@@ -134,19 +138,21 @@ export const api = {
             start_date: string;
             end_date: string;
             reason: string;
-            days_count: number;
+            days_count?: number;
         }) => apiClient.post('/leaves/requests', data),
         getAll: (params?: { skip?: number; limit?: number; status?: string }) =>
             apiClient.get('/leaves/requests', { params }),
-        getById: (id: number) => apiClient.get(`/leaves/requests/${id}`),
-        approve: (id: number, data?: { comments?: string }) =>
+        getById: (id: number | string) => apiClient.get(`/leaves/requests/${id}`),
+        approve: (id: number | string, data?: { comments?: string }) =>
             apiClient.post(`/leaves/requests/${id}/approve`, data),
-        reject: (id: number, data: { comments: string }) =>
+        reject: (id: number | string, data: { comments: string }) =>
             apiClient.post(`/leaves/requests/${id}/reject`, data),
-        cancel: (id: number) =>
+        cancel: (id: number | string) =>
             apiClient.post(`/leaves/requests/${id}/cancel`),
         getBalance: () =>
             apiClient.get('/leaves/balance'),
+        getPendingApprovals: (params?: { skip?: number; limit?: number }) =>
+            apiClient.get('/leaves/pending-approvals', { params }),
     },
 
     // Tasks
@@ -175,10 +181,14 @@ export const api = {
         getAll: (params?: { skip?: number; limit?: number; status?: string }) =>
             apiClient.get('/expenses/', { params }),
         getById: (id: number) => apiClient.get(`/expenses/${id}`),
-        approve: (id: number, data?: { comments?: string }) =>
+        approve: (id: number | string, data?: { comments?: string }) =>
             apiClient.post(`/expenses/${id}/approve`, data),
-        reject: (id: number, data: { comments: string }) =>
+        reject: (id: number | string, data: { comments: string }) =>
             apiClient.post(`/expenses/${id}/reject`, data),
+        getStats: () =>
+            apiClient.get('/expenses/stats'),
+        getPendingApprovals: (params?: { skip?: number; limit?: number }) =>
+            apiClient.get('/expenses/pending-approvals', { params }),
     },
 
     // Performance
@@ -190,6 +200,18 @@ export const api = {
         update: (id: number, data: any) => apiClient.put(`/performance/reviews/${id}`, data),
         submitFeedback: (id: number, data: any) =>
             apiClient.post(`/performance/reviews/${id}/feedback`, data),
+        submitNewFeedback: (data: any) =>
+            apiClient.post('/performance/feedback', data),
+        getStats: () =>
+            apiClient.get('/performance/stats'),
+        getGoals: (params?: { skip?: number; limit?: number; status?: string }) =>
+            apiClient.get('/performance/goals', { params }),
+        createGoal: (data: any) =>
+            apiClient.post('/performance/goals', data),
+        updateGoalProgress: (id: number | string, data: { current_value: number }) =>
+            apiClient.put(`/performance/goals/${id}/progress`, data),
+        getFeedback: (params?: { skip?: number; limit?: number }) =>
+            apiClient.get('/performance/feedback', { params }),
     },
 
     // Payroll
@@ -211,15 +233,32 @@ export const api = {
             apiClient.get('/analytics/performance'),
         getWorkloadAnalytics: () =>
             apiClient.get('/analytics/workload'),
+        getOverview: (params?: { time_range?: string }) =>
+            apiClient.get('/analytics/overview', { params }),
+        getAttendanceTrends: (params?: { time_range?: string }) =>
+            apiClient.get('/analytics/attendance-trends', { params }),
+        getLeaveTrends: (params?: { time_range?: string }) =>
+            apiClient.get('/analytics/leave-trends', { params }),
+        getDepartmentStats: () =>
+            apiClient.get('/analytics/department-stats'),
+        getPerformanceMetrics: (params?: { time_range?: string }) =>
+            apiClient.get('/analytics/performance-metrics', { params }),
+        getWorkloadDistribution: () =>
+            apiClient.get('/analytics/workload-distribution'),
     },
 
     // Policies
     policies: {
-        getAll: () => apiClient.get('/policies/'),
+        getAll: (params?: { skip?: number; limit?: number; category?: string; acknowledged?: string }) =>
+            apiClient.get('/policies/', { params }),
         getById: (id: number) => apiClient.get(`/policies/${id}`),
         create: (data: any) => apiClient.post('/policies/', data),
         update: (id: number, data: any) => apiClient.put(`/policies/${id}`, data),
         delete: (id: number) => apiClient.delete(`/policies/${id}`),
+        getCategories: () => apiClient.get('/policies/categories'),
+        getStats: () => apiClient.get('/policies/stats'),
+        acknowledge: (id: number | string) =>
+            apiClient.post(`/policies/${id}/acknowledge`),
     },
 
     // Helpdesk
@@ -230,8 +269,20 @@ export const api = {
             apiClient.get('/helpdesk/tickets', { params }),
         getById: (id: number) => apiClient.get(`/helpdesk/tickets/${id}`),
         update: (id: number, data: any) => apiClient.put(`/helpdesk/tickets/${id}`, data),
-        addComment: (id: number, comment: string) =>
-            apiClient.post(`/helpdesk/tickets/${id}/comments`, { comment }),
+        addComment: (id: number | string, data: { comment: string }) =>
+            apiClient.post(`/helpdesk/tickets/${id}/comments`, data),
+        getStats: () =>
+            apiClient.get('/helpdesk/stats'),
+        getComments: (id: number | string) =>
+            apiClient.get(`/helpdesk/tickets/${id}/comments`),
+    },
+
+    // Organization
+    organization: {
+        getDepartments: () =>
+            apiClient.get('/organization/departments'),
+        getTree: () =>
+            apiClient.get('/organization/tree'),
     },
 
     // Real-time (legacy endpoint, use WebSocket instead)

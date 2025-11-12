@@ -74,7 +74,7 @@ const EnhancedLeaveModule: React.FC<EnhancedLeaveModuleProps> = ({ currentUser }
         reason: ''
     });
 
-    const { message: wsMessage } = useWebSocket();
+    const { lastMessage: wsMessage } = useWebSocket();
 
     const isManager = currentUser?.role && ['manager', 'hr', 'admin'].includes(currentUser.role.toLowerCase());
 
@@ -169,7 +169,7 @@ const EnhancedLeaveModule: React.FC<EnhancedLeaveModuleProps> = ({ currentUser }
         if (!reason) return;
 
         try {
-            await api.leaves.reject(leaveId, { reason });
+            await api.leaves.reject(leaveId, { comments: reason });
             toast.success('Leave request rejected');
             await loadLeaves();
             setSelectedLeave(null);
@@ -316,8 +316,8 @@ const EnhancedLeaveModule: React.FC<EnhancedLeaveModuleProps> = ({ currentUser }
                     <button
                         onClick={() => setView('my-leaves')}
                         className={`px-4 py-2 rounded-lg transition-colors ${view === 'my-leaves'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         My Leaves
@@ -326,8 +326,8 @@ const EnhancedLeaveModule: React.FC<EnhancedLeaveModuleProps> = ({ currentUser }
                         <button
                             onClick={() => setView('approvals')}
                             className={`px-4 py-2 rounded-lg transition-colors ${view === 'approvals'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
                             Approvals

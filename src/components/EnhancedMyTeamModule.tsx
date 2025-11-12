@@ -104,7 +104,7 @@ const EnhancedMyTeamModule: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  const { message: wsMessage } = useWebSocket();
+  const { lastMessage: wsMessage } = useWebSocket();
 
   // Load team members
   const loadTeamMembers = async () => {
@@ -351,8 +351,8 @@ const EnhancedMyTeamModule: React.FC = () => {
         <button
           onClick={() => setView('overview')}
           className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'overview'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
         >
           <Activity className="w-5 h-5 inline mr-2" />
@@ -361,8 +361,8 @@ const EnhancedMyTeamModule: React.FC = () => {
         <button
           onClick={() => setView('attendance')}
           className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'attendance'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
         >
           <Clock className="w-5 h-5 inline mr-2" />
@@ -371,8 +371,8 @@ const EnhancedMyTeamModule: React.FC = () => {
         <button
           onClick={() => setView('leaves')}
           className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'leaves'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
         >
           <Calendar className="w-5 h-5 inline mr-2" />
@@ -381,8 +381,8 @@ const EnhancedMyTeamModule: React.FC = () => {
         <button
           onClick={() => setView('tasks')}
           className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'tasks'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
         >
           <Target className="w-5 h-5 inline mr-2" />
@@ -391,8 +391,8 @@ const EnhancedMyTeamModule: React.FC = () => {
         <button
           onClick={() => setView('workload')}
           className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${view === 'workload'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
         >
           <BarChart3 className="w-5 h-5 inline mr-2" />
