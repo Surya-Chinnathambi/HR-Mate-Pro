@@ -32,23 +32,55 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
     const getEmployeeNumericId = () => {
         // Backend expects the numeric 'id' field, not the string 'employee_id' field
         if (!employee) return null;
-        
+
         // Check if id exists and is a number
         if (typeof employee.id === 'number') {
             return employee.id;
         }
-        
+
         // Fallback: try to find a numeric field
         // Some APIs might use different field names
         if (typeof employee.employee_number === 'number') {
             return employee.employee_number;
         }
-        
+
         // Debug: log the employee object to see what fields are available
         console.error('❌ Cannot find numeric employee ID in employee object:', employee);
         console.log('Available fields:', Object.keys(employee));
-        
+
         return null;
+    };
+
+    // Function to refresh attendance status
+    const refreshAttendanceStatus = async () => {
+        const empId = getEmployeeNumericId();
+        if (!empId) return;
+
+        try {
+            // Check if clocked in today
+            const todayAttendance = await apiClient.get('/attendance/today', {
+                params: { employee_id: empId }
+            }).catch(() => ({ data: null }));
+
+            const today = todayAttendance?.data;
+            if (today && today.checkIn && !today.checkOut) {
+                setClockStatus('clocked-in');
+                // Parse time string to calculate hours
+                const [hours, minutes] = today.checkIn.split(':').map(Number);
+                const clockIn = new Date();
+                clockIn.setHours(hours, minutes, 0, 0);
+                const now = new Date();
+                const hoursWorked = (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
+                setTodayHours(Math.max(0, Math.round(hoursWorked * 10) / 10));
+            } else {
+                setClockStatus('clocked-out');
+                if (!today || !today.checkIn) {
+                    setTodayHours(0);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to refresh attendance status:', error);
+        }
     };
 
     // Fetch initial data
@@ -64,22 +96,8 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
                 }).catch(() => ({ data: [] }));
                 setAttendanceData(attendanceRes?.data || []);
 
-                // Check if clocked in today
-                const todayAttendance = await apiClient.get('/attendance/today', {
-                    params: { employee_id: empId }
-                }).catch(() => ({ data: null }));
-
-                const today = todayAttendance?.data;
-                if (today && today.checkIn && !today.checkOut) {
-                    setClockStatus('clocked-in');
-                    // Parse time string to calculate hours
-                    const [hours, minutes] = today.checkIn.split(':').map(Number);
-                    const clockIn = new Date();
-                    clockIn.setHours(hours, minutes, 0, 0);
-                    const now = new Date();
-                    const hoursWorked = (now.getTime() - clockIn.getTime()) / (1000 * 60 * 60);
-                    setTodayHours(Math.max(0, Math.round(hoursWorked * 10) / 10));
-                }
+                // Refresh attendance status
+                await refreshAttendanceStatus();
             } catch (error) {
                 console.error('Failed to fetch attendance data:', error);
             }
@@ -146,6 +164,31 @@ export function EmployeeDashboardContent({ employee }: EmployeeDashboardContentP
             return () => clearInterval(interval);
         }
     }, [clockStatus, employee]);
+
+    // Refresh attendance status when page becomes visible or on interval
+    useEffect(() => {
+        // Refresh on page visibility change
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log('🔄 Page visible, refreshing attendance status...');
+                refreshAttendanceStatus();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        // Also refresh every 30 seconds to catch updates from other sources (AI Command Center, etc.)
+        const refreshInterval = setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                refreshAttendanceStatus();
+            }
+        }, 30000); // 30 seconds
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            clearInterval(refreshInterval);
+        };
+    }, [employee]);
 
     const handleClockAction = async () => {
         const empId = getEmployeeNumericId();
