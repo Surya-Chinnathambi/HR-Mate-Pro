@@ -1,0 +1,169 @@
+{
+    "organization_structure": {
+        "hr": {
+            "role": "HR Manager",
+            "user": {
+                "first_name": "Febby",
+                "last_name": "Thomas",
+                "email": "febby.thomas@company.com",
+                "password": "Febby@2024",
+                "employee_id": "EMP1001",
+                "designation": "HR Manager",
+                "department": "Human Resources",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-01-15",
+                "phone": "+91-9876543201",
+                "currency": "INR"
+            }
+        },
+        "manager": {
+            "role": "Team Manager",
+            "user": {
+                "first_name": "Manohar",
+                "last_name": "Reddy",
+                "email": "manohar.reddy@company.com",
+                "password": "Manohar@2024",
+                "employee_id": "EMP1002",
+                "designation": "Engineering Manager",
+                "department": "Engineering",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-02-01",
+                "phone": "+91-9876543202",
+                "currency": "INR"
+            }
+        },
+        "team_members": [
+            {
+                "first_name": "Surya",
+                "last_name": "Chandra",
+                "email": "surya.chandra@company.com",
+                "password": "Surya@2024",
+                "employee_id": "EMP1003",
+                "designation": "Senior Software Engineer",
+                "department": "Engineering",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-03-01",
+                "phone": "+91-9876543203",
+                "currency": "INR"
+            },
+            {
+                "first_name": "Kope",
+                "last_name": "Kumar",
+                "email": "kope.kumar@company.com",
+                "password": "Kope@2024",
+                "employee_id": "EMP1004",
+                "designation": "Software Engineer",
+                "department": "Engineering",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-03-15",
+                "phone": "+91-9876543204",
+                "currency": "INR"
+            },
+            {
+                "first_name": "Teja",
+                "last_name": "Rao",
+                "email": "teja.rao@company.com",
+                "password": "Teja@2024",
+                "employee_id": "EMP1005",
+                "designation": "Software Engineer",
+                "department": "Engineering",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-04-01",
+                "phone": "+91-9876543205",
+                "currency": "INR"
+            },
+            {
+                "first_name": "Srinithy",
+                "last_name": "Sharma",
+                "email": "srinithy.sharma@company.com",
+                "password": "Srinithy@2024",
+                "employee_id": "EMP1006",
+                "designation": "Software Engineer",
+                "department": "Engineering",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-04-15",
+                "phone": "+91-9876543206",
+                "currency": "INR"
+            },
+            {
+                "first_name": "Ashwatha",
+                "last_name": "Naik",
+                "email": "ashwatha.naik@company.com",
+                "password": "Ashwatha@2024",
+                "employee_id": "EMP1007",
+                "designation": "Junior Software Engineer",
+                "department": "Engineering",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-05-01",
+                "phone": "+91-9876543207",
+                "currency": "INR"
+            },
+            {
+                "first_name": "Thrisha",
+                "last_name": "Menon",
+                "email": "thrisha.menon@company.com",
+                "password": "Thrisha@2024",
+                "employee_id": "EMP1008",
+                "designation": "Junior Software Engineer",
+                "department": "Engineering",
+                "employment_type": "full_time",
+                "date_of_joining": "2024-05-15",
+                "phone": "+91-9876543208",
+                "currency": "INR"
+            }
+        ]
+    },
+    "credentials_summary": {
+        "note": "All passwords follow the format: FirstName@2024",
+        "users": [
+            {
+                "name": "Febby Thomas (HR Manager)",
+                "email": "febby.thomas@company.com",
+                "password": "Febby@2024",
+                "employee_id": "EMP1001"
+            },
+            {
+                "name": "Manohar Reddy (Manager)",
+                "email": "manohar.reddy@company.com",
+                "password": "Manohar@2024",
+                "employee_id": "EMP1002"
+            },
+            {
+                "name": "Surya Chandra (Team Member)",
+                "email": "surya.chandra@company.com",
+                "password": "Surya@2024",
+                "employee_id": "EMP1003"
+            },
+            {
+                "name": "Kope Kumar (Team Member)",
+                "email": "kope.kumar@company.com",
+                "password": "Kope@2024",
+                "employee_id": "EMP1004"
+            },
+            {
+                "name": "Teja Rao (Team Member)",
+                "email": "teja.rao@company.com",
+                "password": "Teja@2024",
+                "employee_id": "EMP1005"
+            },
+            {
+                "name": "Srinithy Sharma (Team Member)",
+                "email": "srinithy.sharma@company.com",
+                "password": "Srinithy@2024",
+                "employee_id": "EMP1006"
+            },
+            {
+                "name": "Ashwatha Naik (Team Member)",
+                "email": "ashwatha.naik@company.com",
+                "password": "Ashwatha@2024",
+                "employee_id": "EMP1007"
+            },
+            {
+                "name": "Thrisha Menon (Team Member)",
+                "email": "thrisha.menon@company.com",
+                "password": "Thrisha@2024",
+                "employee_id": "EMP1008"
+            }
+        ]
+    }
+}
