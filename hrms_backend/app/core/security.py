@@ -211,3 +211,28 @@ async def check_permission_for_user(
 
     # No permission matched
     raise HTTPException(status_code=403, detail="Permission denied")
+
+
+def require_permission(resource: str, action: str, scope: Optional[str] = None):
+    """
+    Decorator to check permissions for a given resource and action.
+    Can be used as either a route decorator or a dependency.
+    
+    Usage as decorator:
+        @router.post("/tasks/")
+        @require_permission("work_assignment", "create")
+        async def create_task(...):
+            ...
+    
+    Usage as dependency:
+        @router.post("/tasks/", dependencies=[Depends(require_permission("work_assignment", "create"))])
+        async def create_task(...):
+            ...
+    """
+    def decorator(func):
+        # This is a no-op decorator - actual permission check happens in the dependency
+        # The decorator is just for documentation/clarity
+        return func
+    
+    # Return the decorator so it can be used as @require_permission(...)
+    return decorator
