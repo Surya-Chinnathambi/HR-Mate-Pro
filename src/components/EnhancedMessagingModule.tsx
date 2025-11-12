@@ -109,26 +109,49 @@ export function EnhancedMessagingModule({ currentUser }: { currentUser?: any }) 
 
             if (userRole === 'manager') {
                 // Managers see only their team members
-                const response = await api.team.getMembers({ limit: 1000 });
-                const teamMembers = response.data.members || [];
+                try {
+                    const response = await api.team.getMembers({ limit: 1000 });
+                    const teamMembers = response.data.members || [];
 
-                // Convert team members to Employee format
-                setEmployees(teamMembers.map((member: any) => ({
-                    id: member.employee_id,
-                    first_name: member.first_name,
-                    last_name: member.last_name,
-                    email: member.email,
-                    role: member.role,
-                    department: member.department_id
-                })));
+                    console.log('Team members loaded:', teamMembers.length);
+
+                    // Convert team members to Employee format
+                    const mappedMembers = teamMembers.map((member: any) => ({
+                        id: member.employee_id,
+                        first_name: member.first_name,
+                        last_name: member.last_name,
+                        email: member.email,
+                        role: member.role,
+                        department: member.department_id
+                    }));
+
+                    setEmployees(mappedMembers);
+
+                    // If no team members found, fall back to all employees
+                    if (mappedMembers.length === 0) {
+                        console.log('No team members found, loading all employees as fallback');
+                        const allResponse = await api.employees.getAll({ limit: 1000 });
+                        setEmployees(allResponse.data || []);
+                        toast('No team members found. Showing all employees.', { icon: 'ℹ️' });
+                    }
+                } catch (teamError) {
+                    console.error('Failed to load team members:', teamError);
+                    // Fallback to all employees if team API fails
+                    console.log('Team API failed, loading all employees as fallback');
+                    const allResponse = await api.employees.getAll({ limit: 1000 });
+                    setEmployees(allResponse.data || []);
+                    toast('Showing all employees.', { icon: 'ℹ️' });
+                }
             } else if (userRole === 'hr' || userRole === 'admin') {
                 // HR and Admin see all employees
                 const response = await api.employees.getAll({ limit: 1000 });
                 setEmployees(response.data || []);
+                console.log('All employees loaded for HR/Admin:', response.data?.length || 0);
             } else {
                 // Regular employees see all employees
                 const response = await api.employees.getAll({ limit: 1000 });
                 setEmployees(response.data || []);
+                console.log('All employees loaded for regular employee:', response.data?.length || 0);
             }
         } catch (error) {
             console.error('Failed to load employees:', error);
