@@ -4,7 +4,7 @@ from sqlalchemy import select
 from typing import List
 from datetime import datetime
 
-from app.database import get_session
+from app.database import get_async_session
 from app.core.security import get_current_user
 from app.models import User, Employee
 from app.services.additional_automation import TrainingAutomationService
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/training", tags=["Training"])
 @router.get("/courses")
 async def get_available_courses(
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_async_session)
 ):
     """Get available training courses for the employee"""
     try:
@@ -49,7 +49,7 @@ async def get_available_courses(
 async def enroll_in_course(
     course_id: int,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_async_session)
 ):
     """Enroll in a training course"""
     try:

@@ -33,8 +33,20 @@ def _normalize_password(password: str) -> bytes:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
-    normalized = _normalize_password(plain_password)
-    return bcrypt.checkpw(normalized, hashed_password.encode('utf-8'))
+    # Check if it's a SHA-256 hash (64 hex characters, used by data generation script)
+    if len(hashed_password) == 64 and all(c in '0123456789abcdef' for c in hashed_password.lower()):
+        # Legacy SHA-256 hash - verify directly
+        import hashlib
+        sha256_hash = hashlib.sha256(plain_password.encode()).hexdigest()
+        return sha256_hash == hashed_password
+    
+    # Modern bcrypt hash
+    try:
+        normalized = _normalize_password(plain_password)
+        return bcrypt.checkpw(normalized, hashed_password.encode('utf-8'))
+    except (ValueError, AttributeError):
+        # If bcrypt fails, try direct comparison (for old hashes)
+        return False
 
 def get_password_hash(password: str) -> str:
     """Hash a password using bcrypt"""

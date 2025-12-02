@@ -4,7 +4,7 @@ from sqlalchemy import select
 from typing import List
 from datetime import datetime
 
-from app.database import get_session
+from app.database import get_async_session
 from app.core.security import get_current_user
 from app.models import User, Employee
 from app.services.additional_automation import OnboardingAutomationService
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 @router.get("/checklist")
 async def get_onboarding_checklist(
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_async_session)
 ):
     """Get employee's onboarding checklist with progress"""
     try:
@@ -50,7 +50,7 @@ async def update_checklist_item(
     item_id: int,
     completed: bool,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_async_session)
 ):
     """Mark an onboarding checklist item as complete/incomplete"""
     try:

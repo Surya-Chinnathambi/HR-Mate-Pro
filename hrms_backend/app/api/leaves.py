@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, date
-from typing import List
+from typing import List, Optional
 
 from app.database import get_async_session
 from app.models import User, Leave, LeaveType, LeaveBalance, LeaveStatus, Employee
@@ -30,8 +30,11 @@ async def get_leave_types(
             "name": lt.name,
             "code": lt.code,
             "description": lt.description,
-            "maxDaysPerYear": lt.max_days_per_year,
-            "isPaid": lt.is_paid
+            "default_days_per_year": lt.default_days_per_year,
+            "maxDaysPerYear": lt.default_days_per_year,  # Frontend compatibility
+            "isPaid": lt.is_paid,
+            "requires_approval": lt.requires_approval,
+            "can_be_carried_forward": lt.can_be_carried_forward
         }
         for lt in leave_types
     ]
@@ -100,22 +103,33 @@ async def apply_leave(
 
 @router.get("/balance")
 async def get_leave_balance(
-    employee_id: int,
-    year: int,
+    year: Optional[int] = None,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get leave balance for employee"""
+    # Use current year if not provided
+    if year is None:
+        year = datetime.now().year
+    
     # Get all leave types
     leave_types_result = await session.execute(select(LeaveType))
     leave_types = leave_types_result.scalars().all()
+    
+    # Get employee ID from user - use separate query to avoid lazy loading issues
+    emp_result = await session.execute(
+        select(Employee.id).where(Employee.user_id == current_user.id)
+    )
+    emp_id = emp_result.scalar_one_or_none()
+    if not emp_id:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
     
     balances = []
     for lt in leave_types:
         # Get or create balance
         balance_result = await session.execute(
             select(LeaveBalance)
-            .where(LeaveBalance.employee_id == employee_id)
+            .where(LeaveBalance.employee_id == emp_id)
             .where(LeaveBalance.leave_type_id == lt.id)
             .where(LeaveBalance.year == year)
         )
@@ -124,13 +138,13 @@ async def get_leave_balance(
         if not balance:
             # Create default balance
             balance = LeaveBalance(
-                employee_id=employee_id,
+                employee_id=emp_id,
                 leave_type_id=lt.id,
                 year=year,
-                opening=lt.max_days_per_year,
-                accrued=lt.max_days_per_year,
+                opening=lt.default_days_per_year,
+                accrued=lt.default_days_per_year,
                 consumed=0,
-                balance=lt.max_days_per_year
+                balance=lt.default_days_per_year
             )
             session.add(balance)
             await session.commit()
@@ -139,7 +153,7 @@ async def get_leave_balance(
         # Get pending leaves
         pending_result = await session.execute(
             select(Leave)
-            .where(Leave.employee_id == employee_id)
+            .where(Leave.employee_id == emp_id)
             .where(Leave.leave_type_id == lt.id)
             .where(Leave.status == LeaveStatus.PENDING)
         )
@@ -169,13 +183,20 @@ async def get_leave_balance(
 
 @router.get("/applications")
 async def get_leave_applications(
-    employee_id: int,
     status: str = None,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get leave applications for employee"""
-    query = select(Leave).where(Leave.employee_id == employee_id)
+    # Get employee ID from user - use separate query to avoid lazy loading issues
+    emp_result = await session.execute(
+        select(Employee.id).where(Employee.user_id == current_user.id)
+    )
+    emp_id = emp_result.scalar_one_or_none()
+    if not emp_id:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+    
+    query = select(Leave).where(Leave.employee_id == emp_id)
     
     if status:
         query = query.where(Leave.status == status)

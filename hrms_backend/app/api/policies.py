@@ -39,30 +39,55 @@ async def get_policies(
         for p in policies
     ]
 
-@router.get("/policies/{policy_id}")
-async def get_policy(
-    policy_id: int,
+@router.get("/policies/categories")
+async def get_policy_categories(
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
-    """Get policy by ID"""
-    result = await session.execute(
-        select(Policy).where(Policy.id == policy_id)
-    )
-    policy = result.scalar_one_or_none()
-    
-    if not policy:
-        raise HTTPException(status_code=404, detail="Policy not found")
-    
-    return {
-        "id": str(policy.id),
-        "title": policy.title,
-        "category": policy.category,
-        "content": policy.content,
-        "version": policy.version,
-        "lastUpdated": policy.updated_at.isoformat() if policy.updated_at else policy.created_at.isoformat()
-    }
+    """Get all policy categories"""
+    try:
+        result = await session.execute(
+            select(Policy.category).distinct().where(Policy.is_active == True)
+        )
+        categories = [row[0] for row in result.all()]
+        
+        return {
+            "categories": categories,
+            "total": len(categories)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch categories: {str(e)}")
 
+
+@router.get("/policies/stats")
+async def get_policy_stats(
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Get policy statistics"""
+    try:
+        # Get total policies
+        total_result = await session.execute(
+            select(Policy).where(Policy.is_active == True)
+        )
+        total_policies = len(total_result.scalars().all())
+        
+        # Get policies by category
+        category_result = await session.execute(
+            select(Policy.category).where(Policy.is_active == True)
+        )
+        categories = {}
+        for row in category_result.all():
+            cat = row[0]
+            categories[cat] = categories.get(cat, 0) + 1
+        
+        return {
+            "total_policies": total_policies,
+            "by_category": categories,
+            "categories_count": len(categories)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch stats: {str(e)}")
 
 @router.get("/policies/search")
 async def search_policies(
@@ -99,6 +124,31 @@ async def search_policies(
         raise HTTPException(status_code=500, detail=f"Failed to search policies: {str(e)}")
 
 
+@router.get("/policies/{policy_id}")
+async def get_policy(
+    policy_id: int,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Get policy by ID"""
+    result = await session.execute(
+        select(Policy).where(Policy.id == policy_id)
+    )
+    policy = result.scalar_one_or_none()
+    
+    if not policy:
+        raise HTTPException(status_code=404, detail="Policy not found")
+    
+    return {
+        "id": str(policy.id),
+        "title": policy.title,
+        "category": policy.category,
+        "content": policy.content,
+        "version": policy.version,
+        "lastUpdated": policy.updated_at.isoformat() if policy.updated_at else policy.created_at.isoformat()
+    }
+
+
 @router.get("/policies/{policy_id}/details")
 async def get_policy_details(
     policy_id: int,
@@ -132,8 +182,3 @@ async def get_policy_details(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get policy details: {str(e)}")
-
-
-# Add this router to main.py:
-# from app.api import policies
-# app.include_router(policies.router, prefix="/api", tags=["Policies"])

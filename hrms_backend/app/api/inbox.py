@@ -35,6 +35,25 @@ async def get_inbox_notifications(
         notification_type: Filter by type (task_assigned, leave_approved, etc.)
     """
     try:
+        # Check if inbox_notifications table exists
+        check_table = text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'inbox_notifications'
+            )
+        """)
+        table_exists = await db.execute(check_table)
+        exists = table_exists.scalar()
+        
+        if not exists:
+            # Return empty list if table doesn't exist yet
+            return {
+                "notifications": [],
+                "total": 0,
+                "skip": skip,
+                "limit": limit
+            }
+        
         # Get employee_id for current user
         employee_query = text("""
             SELECT id FROM employees WHERE user_id = :user_id
@@ -314,6 +333,30 @@ async def get_inbox_stats(
     Get inbox statistics (unread count, by type, etc.)
     """
     try:
+        # Check if inbox_notifications table exists
+        check_table = text("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'inbox_notifications'
+            )
+        """)
+        table_exists = await db.execute(check_table)
+        exists = table_exists.scalar()
+        
+        if not exists:
+            # Return empty stats if table doesn't exist yet
+            return {
+                "total": 0,
+                "unread": 0,
+                "read": 0,
+                "by_type": {
+                    "tasks": 0,
+                    "leaves": 0,
+                    "messages": 0,
+                    "attendance": 0
+                }
+            }
+        
         # Get employee_id
         employee_query = text("""
             SELECT id FROM employees WHERE user_id = :user_id

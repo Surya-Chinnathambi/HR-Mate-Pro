@@ -125,7 +125,7 @@ export const api = {
             apiClient.post('/attendance/check-out', null, { params }),
         getRecords: (params?: { start_date?: string; end_date?: string; employee_id?: number }) =>
             apiClient.get('/attendance/records', { params }),
-        getStats: (params?: { start_date?: string; end_date?: string }) =>
+        getStats: (params?: { month?: number; year?: number }) =>
             apiClient.get('/attendance/stats', { params }),
         getTodayStatus: () =>
             apiClient.get('/attendance/today'),
@@ -149,8 +149,8 @@ export const api = {
             apiClient.post(`/leaves/requests/${id}/reject`, data),
         cancel: (id: number | string) =>
             apiClient.post(`/leaves/requests/${id}/cancel`),
-        getBalance: () =>
-            apiClient.get('/leaves/balance'),
+        getBalance: (params?: { year?: number }) =>
+            apiClient.get('/leaves/balance', { params }),
         getPendingApprovals: (params?: { skip?: number; limit?: number }) =>
             apiClient.get('/leaves/pending-approvals', { params }),
     },
@@ -217,9 +217,9 @@ export const api = {
     // Payroll
     payroll: {
         getPayslips: (params?: { skip?: number; limit?: number; year?: number; month?: number }) =>
-            apiClient.get('/payroll/payslips', { params }),
-        getById: (id: number) => apiClient.get(`/payroll/payslips/${id}`),
-        downloadPdf: (id: number) => apiClient.get(`/payroll/payslips/${id}/pdf`, { responseType: 'blob' }),
+            apiClient.get('/payroll/history', { params }),
+        getById: (id: number) => apiClient.get(`/payroll/${id}`),
+        downloadPdf: (id: number) => apiClient.get(`/payroll/${id}/pdf`, { responseType: 'blob' }),
     },
 
     // Analytics

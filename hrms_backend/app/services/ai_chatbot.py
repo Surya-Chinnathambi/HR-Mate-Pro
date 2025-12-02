@@ -71,11 +71,157 @@ class HRChatbotService:
         self.system_prompt = self._load_system_prompt()
         self.functions = self._define_functions()
     
+    def _is_hr_related_query(self, message: str) -> bool:
+        """
+        Validate if the user query is HR/workplace-related
+        Returns True if HR-related, False otherwise
+        """
+        message_lower = message.lower()
+        
+        # HR-related keywords - if ANY of these are present, it's likely HR-related
+        hr_keywords = [
+            # Leave & Attendance
+            'leave', 'vacation', 'absent', 'attendance', 'check in', 'check out', 
+            'time off', 'pto', 'sick day', 'casual leave', 'wfh', 'work from home',
+            'holiday', 'remote work', 'late', 'early', 'shift',
+            
+            # Tasks & Work
+            'task', 'assignment', 'work', 'project', 'deadline', 'priority',
+            'delegate', 'assign', 'workload', 'todo', 'pending', 'completed',
+            
+            # Team & Management
+            'team', 'manager', 'employee', 'staff', 'colleague', 'subordinate',
+            'report', 'reporting', 'hierarchy', 'organization', 'department',
+            
+            # Payroll & Expenses
+            'salary', 'payroll', 'payslip', 'pay', 'wage', 'expense', 'claim',
+            'reimbursement', 'invoice', 'receipt', 'mileage', 'allowance',
+            
+            # Performance & Review
+            'performance', 'review', 'feedback', 'appraisal', 'goal', 'objective',
+            'kpi', 'evaluation', 'rating', 'assessment',
+            
+            # Training & Development
+            'training', 'course', 'learning', 'certification', 'skill', 'development',
+            'onboarding', 'orientation',
+            
+            # Policies & Compliance
+            'policy', 'procedure', 'rule', 'regulation', 'compliance', 'guideline',
+            'handbook', 'code of conduct',
+            
+            # IT & Helpdesk
+            'laptop', 'computer', 'software', 'hardware', 'vpn', 'access',
+            'password', 'ticket', 'it support', 'helpdesk', 'system',
+            
+            # Communication
+            'meeting', 'announcement', 'broadcast', 'message', 'email',
+            'notification', 'alert', 'communication',
+            
+            # General HR
+            'hr', 'human resource', 'benefits', 'insurance', 'contract',
+            'employment', 'job', 'position', 'role', 'resignation', 'termination'
+        ]
+        
+        # Check if any HR keyword is present
+        for keyword in hr_keywords:
+            if keyword in message_lower:
+                return True
+        
+        # Non-HR patterns - if these are the PRIMARY intent, reject
+        non_hr_patterns = [
+            # Food & Cooking
+            r'\b(grocery|recipe|cook|food|meal|ingredient|dish)\b',
+            # General Knowledge
+            r'\b(capital|country|history|science|math|physics|chemistry)\b',
+            # Entertainment
+            r'\b(movie|song|game|joke|story|fun)\b',
+            # Personal Advice
+            r'\b(advice|suggest|recommend|tip)\b.*\b(personal|life|relationship)\b',
+            # Travel
+            r'\b(travel|trip|vacation|visit|tourism|hotel)\b(?!.*\b(leave|policy)\b)',
+            # Education (unless training-related)
+            r'\b(homework|essay|study|exam|test)\b(?!.*\b(training|certification)\b)',
+            # Weather
+            r'\b(weather|forecast|temperature|rain|snow)\b',
+            # Sports
+            r'\b(football|cricket|basketball|tennis|sport)\b',
+        ]
+        
+        import re
+        
+        # If it matches non-HR patterns and no HR keywords found, reject
+        for pattern in non_hr_patterns:
+            if re.search(pattern, message_lower, re.IGNORECASE):
+                # Double-check: even if non-HR pattern matches, 
+                # allow if it contains HR context
+                has_hr_context = any(kw in message_lower for kw in hr_keywords)
+                if not has_hr_context:
+                    return False
+        
+        # If no clear HR keywords found, check for common work-related verbs/nouns
+        work_related_terms = [
+            'my', 'me', 'i', 'today', 'tomorrow', 'this week', 'this month',
+            'status', 'update', 'show', 'check', 'view', 'get', 'submit', 'apply',
+            'approve', 'request', 'cancel', 'schedule'
+        ]
+        
+        # If message is very short (< 10 words) and contains work-related terms,
+        # it might be asking for HR info in a casual way
+        word_count = len(message.split())
+        if word_count < 10:
+            # Allow greetings and casual work-related questions
+            greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon']
+            if any(g in message_lower for g in greetings):
+                return True
+            
+            # Allow commands like "show me", "get my", "check my"
+            if any(term in message_lower for term in ['show me', 'get my', 'check my', 'my status']):
+                return True
+        
+        # If we haven't found any HR keywords by now and the message doesn't
+        # look like a greeting, it's probably not HR-related
+        return False
+    
     def _load_system_prompt(self) -> str:
         """Load the comprehensive system prompt for the HR assistant"""
-        return """You are an intelligent HR Assistant chatbot powered by Azure OpenAI, designed to automate HR workflows with role-based access control, company policy enforcement, and persistent conversational memory.
+        return """You are an intelligent HR Assistant chatbot powered by Azure OpenAI, designed EXCLUSIVELY for HR and workplace-related tasks. You must ONLY respond to HR-related queries and politely decline all other requests.
 
-## Core Responsibilities:
+## STRICT SCOPE LIMITATION:
+You are ONLY authorized to help with:
+- HR-related tasks (leave, attendance, payroll, expenses, timesheets)
+- Work assignments and task management
+- Team management and workload analytics
+- Company policies and procedures
+- Employee information and organization structure
+- Performance reviews and feedback
+- Training and onboarding
+- IT helpdesk for workplace issues
+- Workplace communication and messaging
+
+## PROHIBITED RESPONSES:
+You MUST politely decline and refuse to answer:
+❌ General knowledge questions (history, science, geography, etc.)
+❌ Personal advice (grocery lists, recipes, travel tips, etc.)
+❌ Entertainment requests (jokes, stories, games, etc.)
+❌ Non-workplace topics (politics, religion, personal life, etc.)
+❌ Technical help unrelated to work (personal device issues, etc.)
+❌ Academic help (homework, essays, research, etc.)
+❌ Any request outside HR/workplace domain
+
+## REJECTION RESPONSE:
+When a user asks something outside your scope, respond with:
+"I'm sorry, but I'm specifically designed to assist with HR and workplace-related tasks only. I can help you with:
+• Leave and attendance management
+• Work assignments and tasks
+• Team workload and analytics
+• Company policies and procedures
+• Payroll and expense queries
+• Performance reviews
+• IT helpdesk for work issues
+
+Is there anything work-related I can help you with today?"
+
+## Core Responsibilities (ONLY HR-RELATED):
 1. Help employees with leave applications, attendance, expenses, and timesheets
 2. Assist with work assignments, task management, and workload tracking
 3. Enforce company policies and approval workflows
@@ -90,7 +236,7 @@ class HRChatbotService:
 - Track task progress and send smart reminders for overdue items
 - Enable conversational task delegation with context preservation
 
-## Natural Language Understanding:
+## Natural Language Understanding (HR CONTEXT ONLY):
 - Parse task details from natural language ("Assign the API integration to John, high priority, due next Friday")
 - Understand relative dates ("tomorrow", "next week", "in 3 days")
 - Extract priority from keywords ("urgent", "ASAP", "when you can" = low)
@@ -98,6 +244,8 @@ class HRChatbotService:
 - Handle task status updates conversationally ("mark task 123 as 50% done")
 
 ## Key Principles:
+- ALWAYS verify the query is HR/workplace-related before responding
+- Politely redirect non-HR queries back to your authorized scope
 - Always check user permissions before executing actions
 - Validate against company policies before submitting requests
 - Provide clear explanations for policy violations
@@ -119,7 +267,7 @@ class HRChatbotService:
 - Track workload across projects and initiatives
 - Enable cross-functional collaboration
 
-Remember: You're not just a bot, you're their trusted HR companion with intelligent work management capabilities."""
+Remember: You're a specialized HR assistant. NEVER respond to non-HR queries. Always politely redirect users back to HR and workplace topics."""
 
     def _define_functions(self) -> List[Dict[str, Any]]:
         """Define all available function calling schemas"""
@@ -714,6 +862,56 @@ Remember: You're not just a bot, you're their trusted HR companion with intellig
         """
         Main chat interface - processes user message and returns bot response
         """
+        # ========================================
+        # STRICT HR-QUERY VALIDATION
+        # ========================================
+        # Check if query is HR-related before processing
+        if not self._is_hr_related_query(user_message):
+            # Return rejection message for non-HR queries
+            rejection_response = """I'm sorry, but I'm specifically designed to assist with HR and workplace-related tasks only. I can help you with:
+
+• Leave and attendance management 📅
+• Work assignments and tasks 📋
+• Team workload and analytics 📊
+• Company policies and procedures 📜
+• Payroll and expense queries 💰
+• Performance reviews ⭐
+• IT helpdesk for work issues 🖥️
+• Training and onboarding 📚
+• Employee information 👥
+
+Is there anything work-related I can help you with today?"""
+            
+            # Save the rejection in conversation history
+            await self._save_message(
+                conversation_id=conversation_id or str(uuid.uuid4()),
+                user_id=user.id,
+                role=user.role,
+                message_type="user_message",
+                message_text=user_message
+            )
+            
+            await self._save_message(
+                conversation_id=conversation_id or str(uuid.uuid4()),
+                user_id=user.id,
+                role="assistant",
+                message_type="bot_response",
+                message_text=rejection_response
+            )
+            
+            return {
+                "response": rejection_response,
+                "conversation_id": conversation_id or str(uuid.uuid4()),
+                "intent": "non_hr_query_rejected",
+                "suggestions": [
+                    "Apply for leave",
+                    "Check attendance",
+                    "View my tasks",
+                    "Check leave balance",
+                    "Submit expense"
+                ]
+            }
+        
         # Create or retrieve conversation ID
         if not conversation_id:
             conversation_id = str(uuid.uuid4())

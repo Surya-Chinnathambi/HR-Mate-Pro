@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import timedelta
 
 from app.database import get_async_session
-from app.models import User, Employee
+from app.models import User, Employee, Department, Location
 from app.models.user import UserStatus
 from app.schemas import Token, UserLogin, UserRegister, EmployeeResponse
 from app.core.security import (
@@ -115,7 +115,7 @@ async def refresh_token(
     access_token = create_access_token(data={"sub": current_user.email})
     return Token(access_token=access_token, token_type="bearer")
 
-@router.get("/me", response_model=EmployeeResponse)
+@router.get("/me")
 async def get_current_user_profile(
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
@@ -132,7 +132,27 @@ async def get_current_user_profile(
             detail="Employee profile not found"
         )
     
-    return employee
+    # Build response with related data loaded separately
+    employee_dict = employee.model_dump()
+    
+    # Load department and location separately to avoid lazy loading
+    if employee.department_id:
+        dept_result = await session.execute(
+            select(Department).where(Department.id == employee.department_id)
+        )
+        dept = dept_result.scalar_one_or_none()
+        if dept:
+            employee_dict["department"] = dept.model_dump()
+    
+    if employee.location_id:
+        loc_result = await session.execute(
+            select(Location).where(Location.id == employee.location_id)
+        )
+        loc = loc_result.scalar_one_or_none()
+        if loc:
+            employee_dict["location"] = loc.model_dump()
+    
+    return employee_dict
 
 @router.post("/logout")
 async def logout(current_user: User = Depends(get_current_active_user)):

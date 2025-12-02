@@ -5,7 +5,7 @@ from datetime import datetime, date, timedelta
 from typing import Optional
 
 from app.database import get_async_session
-from app.models import User, Attendance, AttendanceStatus
+from app.models import User, Attendance, AttendanceStatus, Employee
 from app.schemas import AttendanceResponse, AttendanceStats
 from app.core.security import get_current_active_user
 
@@ -117,16 +117,23 @@ async def check_out(
 
 @router.get("/today")
 async def get_today_attendance(
-    employee_id: int,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get today's attendance for employee"""
     today = date.today()
     
+    # Get employee ID from user - use separate query to avoid lazy loading issues
+    emp_result = await session.execute(
+        select(Employee.id).where(Employee.user_id == current_user.id)
+    )
+    emp_id = emp_result.scalar_one_or_none()
+    if not emp_id:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+    
     result = await session.execute(
         select(Attendance)
-        .where(Attendance.employee_id == employee_id)
+        .where(Attendance.employee_id == emp_id)
         .where(Attendance.date == today)
     )
     attendance = result.scalar_one_or_none()
@@ -143,27 +150,75 @@ async def get_today_attendance(
         "workLocation": attendance.location_type
     }
 
+@router.get("/records")
+async def get_attendance_records(
+    limit: int = 100,
+    employee_id: Optional[int] = None,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Get attendance records (paginated)"""
+    # Get employee ID from user if not provided
+    if not employee_id:
+        emp_result = await session.execute(
+            select(Employee.id).where(Employee.user_id == current_user.id)
+        )
+        employee_id = emp_result.scalar_one_or_none()
+        if not employee_id:
+            raise HTTPException(status_code=404, detail="Employee profile not found")
+    
+    # Get attendance records
+    result = await session.execute(
+        select(Attendance)
+        .where(Attendance.employee_id == employee_id)
+        .order_by(Attendance.date.desc())
+        .limit(limit)
+    )
+    attendances = result.scalars().all()
+    
+    return [
+        {
+            "id": a.id,
+            "date": str(a.date),
+            "checkIn": a.check_in.strftime("%H:%M") if a.check_in else None,
+            "checkOut": a.check_out.strftime("%H:%M") if a.check_out else None,
+            "workHours": a.work_hours or 0,
+            "status": a.status.value if hasattr(a.status, 'value') else str(a.status),
+            "workLocation": a.location_type or "Office"
+        }
+        for a in attendances
+    ]
+
 @router.get("/stats")
 async def get_attendance_stats(
-    employee_id: int,
-    month: str,
-    year: int,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get attendance statistics for a month"""
-    # Get month's date range
-    month_num = int(month)
-    start_date = date(year, month_num, 1)
+    # Use current month/year if not provided
+    today = date.today()
+    month_num = month if month is not None else today.month
+    year_val = year if year is not None else today.year
+    start_date = date(year_val, month_num, 1)
     if month_num == 12:
-        end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        end_date = date(year_val + 1, 1, 1) - timedelta(days=1)
     else:
-        end_date = date(year, month_num + 1, 1) - timedelta(days=1)
+        end_date = date(year_val, month_num + 1, 1) - timedelta(days=1)
+    
+    # Get employee ID from user - use separate query to avoid lazy loading issues
+    emp_result = await session.execute(
+        select(Employee.id).where(Employee.user_id == current_user.id)
+    )
+    emp_id = emp_result.scalar_one_or_none()
+    if not emp_id:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
     
     # Get all attendance records for the month
     result = await session.execute(
         select(Attendance)
-        .where(Attendance.employee_id == employee_id)
+        .where(Attendance.employee_id == emp_id)
         .where(Attendance.date >= start_date)
         .where(Attendance.date <= end_date)
     )
@@ -176,6 +231,10 @@ async def get_attendance_stats(
     half_day = sum(1 for a in attendances if a.status == AttendanceStatus.HALF_DAY)
     wfh = sum(1 for a in attendances if a.status == AttendanceStatus.WFH)
     
+    # Calculate average hours
+    total_hours = sum(a.work_hours or 0 for a in attendances if a.work_hours)
+    avg_hours = (total_hours / len(attendances)) if attendances else 0
+    
     total_days = (end_date - start_date).days + 1
     working_days = total_days  # Simplified, should exclude weekends and holidays
     attendance_percentage = (present / working_days * 100) if working_days > 0 else 0
@@ -186,7 +245,10 @@ async def get_attendance_stats(
         "onLeave": on_leave,
         "halfDay": half_day,
         "wfh": wfh,
-        "attendancePercentage": round(attendance_percentage, 2)
+        "attendancePercentage": round(attendance_percentage, 2),
+        "average_hours_per_day": round(avg_hours, 2),
+        "total_hours": round(total_hours, 2),
+        "working_days": working_days
     }
 
 @router.get("/history")

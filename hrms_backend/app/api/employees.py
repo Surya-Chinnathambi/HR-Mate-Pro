@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlmodel import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import os
 import shutil
@@ -9,7 +11,7 @@ import uuid
 from datetime import datetime
 
 from app.database import get_async_session
-from app.models import User, Employee
+from app.models import User, Employee, Department, Location
 from app.schemas import EmployeeResponse, EmployeeUpdate
 from app.core.security import get_current_active_user
 
@@ -25,8 +27,14 @@ async def get_current_employee(
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get current employee profile"""
+    # Eagerly load department and location to avoid lazy loading issues
     result = await session.execute(
-        select(Employee).where(Employee.user_id == current_user.id)
+        select(Employee)
+        .options(
+            selectinload(Employee.department),
+            selectinload(Employee.location)
+        )
+        .where(Employee.user_id == current_user.id)
     )
     employee = result.scalar_one_or_none()
     
@@ -36,16 +44,51 @@ async def get_current_employee(
             detail="Employee profile not found"
         )
     
-    return employee
+    # Convert to dict and populate string fields from relationships
+    emp_dict = {
+        "id": employee.id,
+        "employee_id": employee.employee_id,
+        "first_name": employee.first_name,
+        "middle_name": employee.middle_name,
+        "last_name": employee.last_name,
+        "display_name": employee.display_name,
+        "email": employee.email,
+        "phone": employee.phone,
+        "designation": employee.designation,
+        "department": employee.department.name if employee.department else None,
+        "location": employee.location.name if employee.location else None,
+        "salary": employee.salary,
+        "date_of_birth": employee.date_of_birth,
+        "gender": employee.gender,
+        "role": employee.role,
+        "team_id": employee.team_id,
+        "is_active": employee.is_active,
+        "created_at": employee.created_at,
+        "updated_at": employee.updated_at,
+    }
+    
+    return emp_dict
 
 @router.get("/teammates", response_model=List[EmployeeResponse])
 async def get_teammates(
-    department: str,
-    exclude_id: int,
+    department: str = None,
+    exclude_id: int = None,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get team members in the same department"""
+    # Get current employee's department if not provided
+    if department is None or exclude_id is None:
+        emp_result = await session.execute(
+            select(Employee).where(Employee.user_id == current_user.id)
+        )
+        current_emp = emp_result.scalar_one_or_none()
+        if not current_emp:
+            raise HTTPException(status_code=404, detail="Employee record not found")
+        
+        department = department or current_emp.department
+        exclude_id = exclude_id or current_emp.id
+    
     result = await session.execute(
         select(Employee)
         .where(Employee.department == department)
@@ -61,19 +104,40 @@ async def get_organization_tree(
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get organization structure by department"""
-    result = await session.execute(
-        select(Employee)
-        .where(Employee.is_active == True)
-        .order_by(Employee.department)
-    )
-    employees = result.scalars().all()
+    # Get all active employees with their departments using raw SQL
+    query = text("""
+        SELECT 
+            e.id,
+            e.employee_id,
+            e.first_name,
+            e.last_name,
+            e.designation,
+            e.email,
+            COALESCE(d.name, 'Unassigned') as department_name,
+            e.department_id
+        FROM employees e
+        LEFT JOIN departments d ON e.department_id = d.id
+        WHERE e.is_active = true
+        ORDER BY d.name, e.first_name
+    """)
+    
+    result = await session.execute(query)
+    employees = result.fetchall()
     
     # Group by department
     org_tree = {}
     for emp in employees:
-        if emp.department not in org_tree:
-            org_tree[emp.department] = []
-        org_tree[emp.department].append(emp)
+        dept_name = emp[6]  # department_name
+        if dept_name not in org_tree:
+            org_tree[dept_name] = []
+        org_tree[dept_name].append({
+            "_id": emp[0],
+            "employeeId": emp[1],
+            "firstName": emp[2],
+            "lastName": emp[3],
+            "designation": emp[4],
+            "email": emp[5]
+        })
     
     # Format response
     tree = []
@@ -81,17 +145,7 @@ async def get_organization_tree(
         tree.append({
             "department": dept,
             "count": len(emps),
-            "employees": [
-                {
-                    "_id": emp.id,
-                    "employeeId": emp.employee_id,
-                    "firstName": emp.first_name,
-                    "lastName": emp.last_name,
-                    "designation": emp.designation,
-                    "email": emp.email
-                }
-                for emp in emps
-            ]
+            "employees": emps
         })
     
     return tree
@@ -100,55 +154,81 @@ async def get_organization_tree(
 async def get_employee_directory(
     search: Optional[str] = None,
     department: Optional[str] = None,
-    location: Optional[str] = None,
+    location_id: Optional[int] = None,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get employee directory with filters"""
-    query = select(Employee).where(Employee.is_active == True)
+    # Use raw SQL to get employees with department names
+    query_sql = """
+        SELECT 
+            e.id,
+            e.employee_id,
+            e.first_name,
+            e.last_name,
+            e.designation,
+            e.department_id,
+            d.name as department_name,
+            e.location_id,
+            e.email,
+            e.phone
+        FROM employees e
+        LEFT JOIN departments d ON e.department_id = d.id
+        WHERE e.is_active = true
+    """
+    
+    params = {}
     
     if search:
-        search_filter = f"%{search}%"
-        query = query.where(
-            (Employee.first_name.ilike(search_filter)) |
-            (Employee.last_name.ilike(search_filter)) |
-            (Employee.email.ilike(search_filter))
-        )
+        query_sql += " AND (e.first_name ILIKE :search OR e.last_name ILIKE :search OR e.email ILIKE :search)"
+        params["search"] = f"%{search}%"
     
     if department:
-        query = query.where(Employee.department == department)
+        query_sql += " AND d.name = :department"
+        params["department"] = department
     
-    if location:
-        query = query.where(Employee.location == location)
+    if location_id:
+        query_sql += " AND e.location_id = :location_id"
+        params["location_id"] = location_id
     
-    result = await session.execute(query)
-    employees = result.scalars().all()
+    query_sql += " ORDER BY e.first_name, e.last_name"
     
-    # Get unique departments and locations for filters
-    all_employees = await session.execute(select(Employee).where(Employee.is_active == True))
-    all_emps = all_employees.scalars().all()
+    result = await session.execute(text(query_sql), params)
+    employees = result.fetchall()
     
-    departments = list(set([e.department for e in all_emps if e.department]))
-    locations = list(set([e.location for e in all_emps if e.location]))
+    # Get unique departments and location_ids for filters
+    filter_query = text("""
+        SELECT DISTINCT d.name as department_name, e.location_id
+        FROM employees e
+        LEFT JOIN departments d ON e.department_id = d.id
+        WHERE e.is_active = true AND (d.name IS NOT NULL OR e.location_id IS NOT NULL)
+    """)
+    
+    filter_result = await session.execute(filter_query)
+    filter_data = filter_result.fetchall()
+    
+    departments = list(set([row[0] for row in filter_data if row[0]]))
+    location_ids = list(set([row[1] for row in filter_data if row[1]]))
     
     return {
         "employees": [
             {
-                "_id": emp.id,
-                "employeeId": emp.employee_id,
-                "firstName": emp.first_name,
-                "lastName": emp.last_name,
-                "designation": emp.designation,
-                "department": emp.department,
-                "location": emp.location,
-                "email": emp.email,
-                "phone": emp.phone
+                "_id": row[0],
+                "employeeId": row[1],
+                "firstName": row[2],
+                "lastName": row[3],
+                "designation": row[4],
+                "department_id": row[5],
+                "department": row[6],
+                "location_id": row[7],
+                "email": row[8],
+                "phone": row[9]
             }
-            for emp in employees
+            for row in employees
         ],
         "filters": {
-            "departments": departments,
-            "locations": locations
+            "departments": sorted(departments),
+            "location_ids": sorted(location_ids)
         }
     }
 
@@ -269,7 +349,7 @@ async def upload_avatar(
         "avatar_url": avatar_url
     }
 
-@router.get("/all/list", response_model=List[EmployeeResponse])
+@router.get("/all/list")
 async def get_all_employees(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -280,37 +360,68 @@ async def get_all_employees(
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get all employees with pagination and filters"""
-    query = select(Employee).where(Employee.is_active == True)
+    # Use raw SQL to avoid relationship loading issues
+    query_sql = """
+        SELECT 
+            e.id,
+            e.employee_id,
+            e.first_name,
+            e.last_name,
+            e.display_name,
+            e.email,
+            e.phone,
+            e.designation,
+            e.department_id,
+            d.name as department_name,
+            e.location_id,
+            l.name as location_name,
+            e.is_manager,
+            e.is_active,
+            e.date_of_joining
+        FROM employees e
+        LEFT JOIN departments d ON e.department_id = d.id
+        LEFT JOIN locations l ON e.location_id = l.id
+        WHERE e.is_active = true
+    """
+    
+    params = {}
     
     if search:
-        search_filter = f"%{search}%"
-        query = query.where(
-            or_(
-                Employee.first_name.ilike(search_filter),
-                Employee.last_name.ilike(search_filter),
-                Employee.email.ilike(search_filter),
-                Employee.employee_id.ilike(search_filter)
-            )
-        )
+        query_sql += " AND (e.first_name ILIKE :search OR e.last_name ILIKE :search OR e.email ILIKE :search OR e.employee_id ILIKE :search)"
+        params["search"] = f"%{search}%"
     
     if department_id:
-        query = query.where(Employee.department_id == department_id)
+        query_sql += " AND e.department_id = :department_id"
+        params["department_id"] = department_id
     
     if is_manager is not None:
-        query = query.where(Employee.is_manager == is_manager)
+        query_sql += " AND e.is_manager = :is_manager"
+        params["is_manager"] = is_manager
     
-    query = query.offset(skip).limit(limit).order_by(Employee.first_name)
+    query_sql += " ORDER BY e.first_name LIMIT :limit OFFSET :skip"
+    params["limit"] = limit
+    params["skip"] = skip
     
-    result = await session.execute(query)
-    employees = result.scalars().all()
+    result = await session.execute(text(query_sql), params)
+    employees = result.fetchall()
     
-    return employees
-    employee = result.scalar_one_or_none()
-    
-    if not employee:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee not found"
-        )
-    
-    return employee
+    return [
+        {
+            "id": row[0],
+            "employee_id": row[1],
+            "first_name": row[2],
+            "last_name": row[3],
+            "display_name": row[4],
+            "email": row[5],
+            "phone": row[6],
+            "designation": row[7],
+            "department_id": row[8],
+            "department_name": row[9],
+            "location_id": row[10],
+            "location_name": row[11],
+            "is_manager": row[12],
+            "is_active": row[13],
+            "date_of_joining": row[14].isoformat() if row[14] else None
+        }
+        for row in employees
+    ]

@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from app.database import get_session
+from app.database import get_async_session
 from app.core.security import get_current_user
 from app.models import User, Employee
 from app.services.additional_automation import ITHelpdeskAutomationService
@@ -29,22 +29,12 @@ class AssetRequest(BaseModel):
 async def get_automated_solution(
     issue_description: str,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_async_session)
 ):
     """Get automated solution suggestion for common IT issues"""
     try:
-        # Get employee record
-        stmt = select(Employee).where(Employee.user_id == current_user.id)
-        result = await session.execute(stmt)
-        employee = result.scalar_one_or_none()
-        
-        if not employee:
-            raise HTTPException(status_code=404, detail="Employee record not found")
-        
-        # Get automated solution
-        solution = await ITHelpdeskAutomationService.suggest_solution(
-            db=session,
-            employee_id=employee.id,
+        # Get automated solution (service doesn't need db or employee_id)
+        solution = ITHelpdeskAutomationService.suggest_solution(
             issue_description=issue_description
         )
         
@@ -64,7 +54,7 @@ async def get_automated_solution(
 async def create_it_ticket(
     ticket_data: TicketCreate,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_async_session)
 ):
     """Create a new IT support ticket"""
     try:
@@ -76,11 +66,11 @@ async def create_it_ticket(
         if not employee:
             raise HTTPException(status_code=404, detail="Employee record not found")
         
-        # Create ticket
+        # Create ticket (service expects 'category' not 'issue_type')
         ticket = await ITHelpdeskAutomationService.create_ticket(
             db=session,
             employee_id=employee.id,
-            issue_type=ticket_data.issue_type,
+            category=ticket_data.issue_type,
             description=ticket_data.description,
             priority=ticket_data.priority
         )
@@ -101,7 +91,7 @@ async def create_it_ticket(
 async def request_it_asset(
     asset_data: AssetRequest,
     current_user: User = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_async_session)
 ):
     """Request IT hardware/equipment"""
     try:
@@ -113,13 +103,12 @@ async def request_it_asset(
         if not employee:
             raise HTTPException(status_code=404, detail="Employee record not found")
         
-        # Create asset request
+        # Create asset request (service expects 'justification' not 'reason')
         request = await ITHelpdeskAutomationService.request_asset(
             db=session,
             employee_id=employee.id,
             asset_type=asset_data.asset_type,
-            reason=asset_data.reason,
-            urgency=asset_data.urgency
+            justification=asset_data.reason
         )
         
         return {

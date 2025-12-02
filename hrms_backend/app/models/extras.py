@@ -16,12 +16,8 @@ class Payroll(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     employee_id: int = Field(foreign_key="employees.id", index=True)
     
-    # Pay period
-    pay_period_start: date
-    pay_period_end: date
-    pay_date: Optional[date] = None
-    
-    # Backward compatibility
+    # Pay period - NOTE: Database does NOT have pay_period_start, pay_period_end, or pay_date
+    # Backward compatibility - use these instead
     period: Optional[str] = None  # e.g., "January 2025"
     month: Optional[int] = None
     year: Optional[int] = None
@@ -58,7 +54,7 @@ class Payroll(SQLModel, table=True):
     # Payment details
     payment_mode: str = Field(default="Bank Transfer")
     status: str = Field(default="Paid")
-    payment_date: Optional[date] = None
+    # NOTE: payment_date field does not exist in database
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

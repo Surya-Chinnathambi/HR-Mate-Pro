@@ -3,6 +3,12 @@ Redis Client Configuration
 Provides Redis connection pooling for pub/sub, caching, and job queues
 """
 import redis.asyncio as redis
+import asyncio
+from typing import Any
+try:
+    from upstash_redis import Redis as UpstashRedis
+except Exception:
+    UpstashRedis = None
 from typing import Optional
 import os
 from dotenv import load_dotenv
@@ -15,6 +21,8 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 REDIS_URL = os.getenv("REDIS_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}")
+UPSTASH_URL = os.getenv("UPSTASH_URL", None)
+UPSTASH_TOKEN = os.getenv("UPSTASH_TOKEN", None)
 
 # Global Redis connection pool
 _redis_pool: Optional[redis.Redis] = None
@@ -27,14 +35,62 @@ async def get_redis_pool() -> redis.Redis:
     global _redis_pool
     
     if _redis_pool is None:
-        _redis_pool = redis.from_url(
-            REDIS_URL,
-            password=REDIS_PASSWORD,
-            encoding="utf-8",
-            decode_responses=True,
-            max_connections=50
-        )
-    
+        # If Upstash REST URL/token provided, use upstash_redis client wrapped for async
+        if UPSTASH_URL and UpstashRedis is not None:
+            client = UpstashRedis(url=UPSTASH_URL, token=UPSTASH_TOKEN)
+
+            class UpstashWrapper:
+                def __init__(self, client: Any):
+                    self._client = client
+
+                async def ping(self):
+                    return await asyncio.to_thread(self._client.ping)
+
+                async def publish(self, channel: str, message: str):
+                    return await asyncio.to_thread(self._client.publish, channel, message)
+
+                async def zadd(self, name: str, mapping: dict):
+                    # upstash client zadd signature may accept mapping
+                    return await asyncio.to_thread(self._client.zadd, name, mapping)
+
+                async def zpopmin(self, name: str, count: int = 1):
+                    return await asyncio.to_thread(self._client.zpopmin, name, count)
+
+                async def bzpopmin(self, name: str, timeout: int = 0):
+                    # Upstash does not support blocking pop; emulate with polling
+                    end = asyncio.get_event_loop().time() + timeout
+                    while True:
+                        res = await self.zpopmin(name, 1)
+                        if res:
+                            # return in same shape as redis.bzpopmin: (name, member, score)
+                            # upstash zpopmin returns list of tuples [(member, score)]
+                            member, score = res[0]
+                            return (name, member, score)
+                        if timeout == 0 or asyncio.get_event_loop().time() >= end:
+                            return None
+                        await asyncio.sleep(0.5)
+
+                async def close(self):
+                    # upstash client has no close; noop
+                    return None
+
+                # allow attribute access
+                def __getattr__(self, item):
+                    attr = getattr(self._client, item)
+                    if callable(attr):
+                        return lambda *a, **kw: asyncio.to_thread(attr, *a, **kw)
+                    return attr
+
+            _redis_pool = UpstashWrapper(client)
+        else:
+            _redis_pool = redis.from_url(
+                REDIS_URL,
+                password=REDIS_PASSWORD,
+                encoding="utf-8",
+                decode_responses=True,
+                max_connections=50
+            )
+
     return _redis_pool
 
 

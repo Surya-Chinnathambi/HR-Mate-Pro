@@ -66,14 +66,21 @@ async def generate_payroll(
 
 @router.get("/history", response_model=List[PayrollResponse])
 async def get_payroll_history(
-    employee_id: int,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_async_session)
 ):
     """Get payroll history for employee"""
+    # Get employee ID from user - use separate query to avoid lazy loading issues
+    emp_result = await session.execute(
+        select(Employee.id).where(Employee.user_id == current_user.id)
+    )
+    emp_id = emp_result.scalar_one_or_none()
+    if not emp_id:
+        raise HTTPException(status_code=404, detail="Employee profile not found")
+    
     result = await session.execute(
         select(Payroll)
-        .where(Payroll.employee_id == employee_id)
+        .where(Payroll.employee_id == emp_id)
         .order_by(Payroll.year.desc(), Payroll.month.desc())
     )
     payrolls = result.scalars().all()

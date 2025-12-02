@@ -18,7 +18,8 @@ if sys.platform.startswith("win"):
 from app.api import (
     auth, employees, attendance, leaves, payroll, realtime, ai, policies, chatbot, 
     work_assignments, approvals, websocket, scheduler as scheduler_api, analytics, 
-    chat, broadcasts, group_chat, performance, onboarding, training, helpdesk, activity
+    chat, broadcasts, group_chat, performance, onboarding, training, helpdesk, activity, 
+    team, inbox, messages, organization, expenses, tasks
 )
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -31,20 +32,20 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    print("🚀 Starting HRMS Backend...")
+    print("Starting HRMS Backend...")
     create_db_and_tables()
-    print("✅ Database tables created")
+    print("Database tables created")
     
     # Start background scheduler
     start_scheduler()
-    print("✅ APScheduler started with 5 background jobs")
+    print("APScheduler started with 5 background jobs")
     
     yield
     
     # Shutdown
-    print("👋 Shutting down HRMS Backend...")
+    print("Shutting down HRMS Backend...")
     stop_scheduler()
-    print("✅ APScheduler stopped")
+    print("APScheduler stopped")
 
 # Create FastAPI app
 app = FastAPI(
@@ -56,13 +57,15 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
-# Configure CORS
+# Configure CORS - Must be added BEFORE routes
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight for 1 hour
 )
 
 # Health check endpoint
@@ -76,6 +79,16 @@ async def health_check():
         }
     )
 
+# CORS test endpoint
+@app.get("/api/cors-test")
+async def cors_test():
+    """Test CORS configuration - accessible without auth"""
+    return {
+        "message": "CORS is working!",
+        "allowed_origins": settings.ALLOWED_ORIGINS,
+        "timestamp": "2025-11-13"
+    }
+
 # Include API routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(employees.router, prefix="/api/employees", tags=["Employees"])
@@ -83,6 +96,12 @@ app.include_router(attendance.router, prefix="/api/attendance", tags=["Attendanc
 app.include_router(leaves.router, prefix="/api/leaves", tags=["Leaves"])
 app.include_router(payroll.router, prefix="/api/payroll", tags=["Payroll"])
 app.include_router(realtime.router, prefix="/api/realtime", tags=["Realtime"])
+app.include_router(inbox.router, prefix="/api", tags=["Inbox"])
+app.include_router(messages.router, prefix="/api", tags=["Messages"])
+app.include_router(organization.router, prefix="/api", tags=["Organization"])
+app.include_router(expenses.router, prefix="/api", tags=["Expenses"])
+app.include_router(tasks.router, prefix="/api", tags=["Tasks"])
+app.include_router(team.router, prefix="/api", tags=["Team"])
 app.include_router(ai.router, prefix="/api/ai", tags=["AI"])
 app.include_router(policies.router, prefix="/api", tags=["Policies"])
 app.include_router(chatbot.router, prefix="/api", tags=["AI Chatbot"])

@@ -57,5 +57,4 @@ function App() {
 
   return <EnhancedHRMSDashboard user={user} onLogout={handleLogout} />;
 }
-
 export default App;

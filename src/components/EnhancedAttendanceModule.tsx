@@ -463,7 +463,7 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm text-yellow-600">Avg Hours</p>
-                                <p className="text-2xl font-bold text-yellow-900">{stats.avg_hours.toFixed(1)}</p>
+                                <p className="text-2xl font-bold text-yellow-900">{stats?.avg_hours?.toFixed(1) || stats?.average_hours_per_day?.toFixed(1) || '0.0'}</p>
                             </div>
                             <TrendingUp className="w-8 h-8 text-yellow-400" />
                         </div>
@@ -609,7 +609,7 @@ const EnhancedAttendanceModule: React.FC<EnhancedAttendanceModuleProps> = ({ cur
                                         <TrendingUp className="w-5 h-5 text-purple-600" />
                                         <span className="font-medium text-gray-900">Average Hours</span>
                                     </div>
-                                    <span className="text-xl font-bold text-purple-600">{stats.avg_hours.toFixed(1)} hrs</span>
+                                    <span className="text-xl font-bold text-purple-600">{stats?.avg_hours?.toFixed(1) || stats?.average_hours_per_day?.toFixed(1) || '0.0'} hrs</span>
                                 </div>
                             </div>
                         )}
