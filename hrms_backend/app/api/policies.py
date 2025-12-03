@@ -29,12 +29,20 @@ async def get_policies(
     
     return [
         {
-            "id": str(p.id),
+            "policy_id": str(p.id),
+            "id": str(p.id),  # Keep for backwards compatibility
             "title": p.title,
+            "description": p.content[:200] if p.content else "",  # First 200 chars as description
             "category": p.category,
             "content": p.content,
             "version": p.version,
-            "lastUpdated": p.updated_at.isoformat() if p.updated_at else p.created_at.isoformat()
+            "effective_date": p.created_at.isoformat(),
+            "created_by": str(p.created_by) if hasattr(p, 'created_by') else "",
+            "created_at": p.created_at.isoformat(),
+            "updated_at": p.updated_at.isoformat() if p.updated_at else p.created_at.isoformat(),
+            "lastUpdated": p.updated_at.isoformat() if p.updated_at else p.created_at.isoformat(),
+            "requires_acknowledgment": True,
+            "acknowledged": False  # TODO: Check user acknowledgments from database
         }
         for p in policies
     ]
