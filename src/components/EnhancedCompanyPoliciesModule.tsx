@@ -80,10 +80,13 @@ const EnhancedCompanyPoliciesModule: React.FC<EnhancedCompanyPoliciesModuleProps
             if (filterCategory !== 'all') params.category = filterCategory;
 
             const response = await api.policies.getAll(params);
-            setPolicies(response.data || []);
+            // Backend returns array directly, not wrapped in { data: [] }
+            const policiesData = Array.isArray(response.data) ? response.data : [];
+            setPolicies(policiesData);
+            console.log('Loaded policies:', policiesData.length);
         } catch (error: any) {
             console.error('Error loading policies:', error);
-            toast.error('Failed to load policies');
+            toast.error('Failed to load policies: ' + (error.response?.data?.detail || error.message));
         } finally {
             setLoading(false);
         }
@@ -93,7 +96,10 @@ const EnhancedCompanyPoliciesModule: React.FC<EnhancedCompanyPoliciesModuleProps
     const loadCategories = async () => {
         try {
             const response = await api.policies.getCategories();
-            setCategories(response.data || []);
+            // Backend returns { categories: [...], total: N }
+            const categoriesData = response.data?.categories || [];
+            setCategories(categoriesData.map((cat: string) => ({ category: cat, count: 0 })));
+            console.log('Loaded categories:', categoriesData.length);
         } catch (error: any) {
             console.error('Error loading categories:', error);
         }
@@ -104,6 +110,7 @@ const EnhancedCompanyPoliciesModule: React.FC<EnhancedCompanyPoliciesModuleProps
         try {
             const response = await api.policies.getStats();
             setStats(response.data);
+            console.log('Loaded stats:', response.data);
         } catch (error: any) {
             console.error('Error loading stats:', error);
         }
