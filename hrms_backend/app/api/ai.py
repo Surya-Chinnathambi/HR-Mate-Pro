@@ -745,6 +745,12 @@ Date: {}
 Current Time: {}
 Conversation ID: {}
 
+**IMPORTANT - TIME & DATE QUERIES:**
+- When user asks "what time is it" or "time now", respond with the Current Time shown above
+- When user asks for date, respond with the Date shown above
+- NEVER use placeholders like [current time] or [HH:MM] - use the ACTUAL values provided
+- Example: If Current Time is "02:30 PM", say "It's 2:30 PM right now 🕒"
+
 CONTEXT MEMORY RULES:
 1. ALWAYS remember information from previous messages in this conversation
 2. If user provided partial information earlier (like "sick" for leave type), use it
