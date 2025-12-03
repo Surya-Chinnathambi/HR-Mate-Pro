@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 50
     MAX_PAGE_SIZE: int = 100
     
+    # Timezone (for accurate time display in AI responses)
+    # Set to your deployment timezone, e.g., "Asia/Kolkata", "America/New_York", "UTC"
+    TIMEZONE: str = "Asia/Kolkata"  # Default to IST (UTC+5:30)
+    
     class Config:
         env_file = str(ENV_FILE)  # Use absolute path to .env file
         case_sensitive = True

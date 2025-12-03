@@ -715,7 +715,19 @@ async def ai_chat(
                 except:
                     resumption_note = "\n\n**IMPORTANT**: This is a RESUMED conversation. Acknowledge this."
         
-        current_date = datetime.utcnow().strftime('%B %d, %Y')
+        # Use configured timezone for accurate time display
+        import pytz
+        from app.config import settings
+        
+        try:
+            local_tz = pytz.timezone(settings.TIMEZONE)
+        except:
+            # Fallback to IST if timezone not found
+            local_tz = pytz.timezone('Asia/Kolkata')
+        
+        current_datetime = datetime.now(local_tz)
+        current_date = current_datetime.strftime('%B %d, %Y')
+        current_time = current_datetime.strftime('%I:%M %p')
         user_full_name = current_user.full_name if hasattr(current_user, 'full_name') else 'there'
         
         system_prompt = """You are Kope, an intelligent AI HR Assistant powered by Azure GPT-4.
@@ -723,6 +735,7 @@ async def ai_chat(
 Current User: {}
 Employee Name: {}
 Date: {}
+Current Time: {}
 Conversation ID: {}
 
 CONTEXT MEMORY RULES:
@@ -910,6 +923,7 @@ Be concise, friendly, and use emojis appropriately. Always provide clear next st
             current_user.email,
             user_full_name,
             current_date,
+            current_time,
             conv_id
         )
 
@@ -992,7 +1006,7 @@ async def get_chat_history(
         return {
             "messages": parsed,
             "total": len(parsed),
-            "session_date": datetime.utcnow().strftime('%Y-%m-%d')
+            "session_date": current_datetime.strftime('%Y-%m-%d')
         }
         
     except Exception as e:
