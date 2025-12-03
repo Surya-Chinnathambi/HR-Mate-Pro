@@ -1,10 +1,8 @@
 # This config is for the BACKEND service only
-# Create a separate Railway service for the frontend
 
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "hrms_backend/Dockerfile"
-contextPath = "hrms_backend"
+dockerfilePath = "Dockerfile"
 watchPatterns = ["hrms_backend/**"]
 
 [deploy]
