@@ -3,6 +3,7 @@ Seed Railway PostgreSQL with sample HRMS data
 Generates 25 employees with complete data
 """
 import sys
+import os
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
@@ -11,8 +12,8 @@ from random import choice, randint, uniform, random, seed as random_seed
 from typing import List
 import bcrypt
 
-from sqlmodel import Session, select
-from app.database import sync_engine
+from sqlalchemy import create_engine
+from sqlmodel import Session, SQLModel, select
 from app.models.user import (
     User, Employee, Department, Location, 
     UserRole, UserStatus, Gender
@@ -22,10 +23,228 @@ from app.models.attendance import (
     LeaveType, LeaveBalance, LeaveApplication, LeaveApplicationStatus,
     Holiday
 )
-from app.models.extras import Payroll, Notification, NotificationPriority
+from app.models.extras import Payroll, Notification, NotificationPriority, Policy
 
 # Set seed for reproducibility
 random_seed(42)
+
+# Sample policy data
+POLICIES_DATA = [
+    {
+        "title": "Work From Home Policy",
+        "category": "Remote Work",
+        "content": """## Work From Home Policy
+
+### Purpose
+This policy outlines the guidelines for employees working remotely to ensure productivity and work-life balance.
+
+### Eligibility
+- All full-time employees after completing 3 months probation
+- Manager approval required
+- Role must be suitable for remote work
+
+### Guidelines
+1. **Communication**: Maintain regular communication via Slack/Teams
+2. **Availability**: Be available during core hours (10 AM - 4 PM)
+3. **Equipment**: Company provides laptop and necessary equipment
+4. **Security**: Use VPN for all company resources
+5. **Workspace**: Maintain a dedicated, distraction-free workspace
+
+### Approval Process
+- Submit WFH request 48 hours in advance
+- Maximum 3 days per week unless special approval
+- Emergency WFH can be approved same day
+
+### Performance Monitoring
+- Regular check-ins with manager
+- Deliverables tracked via project management tools
+- Monthly performance reviews
+""",
+        "effective_from": date(2024, 1, 1),
+        "is_active": True
+    },
+    {
+        "title": "Leave and Attendance Policy",
+        "category": "Leave Management",
+        "content": """## Leave and Attendance Policy
+
+### Leave Types
+
+#### 1. Casual Leave (CL)
+- 12 days per year
+- Can be taken in half-day increments
+- No carry forward
+- 1 day advance notice required
+
+#### 2. Sick Leave (SL)
+- 12 days per year
+- Medical certificate required for 3+ consecutive days
+- Can be taken without advance notice
+- Unused balance carries forward (max 30 days)
+
+#### 3. Earned Leave (EL)
+- 15 days per year
+- Requires 7 days advance notice
+- Can be encashed
+- Maximum carry forward: 45 days
+
+#### 4. Maternity/Paternity Leave
+- Maternity: 26 weeks paid leave
+- Paternity: 2 weeks paid leave
+- Medical documentation required
+
+### Attendance Guidelines
+- Working hours: 9:00 AM - 6:00 PM
+- Core hours: 10:00 AM - 4:00 PM (mandatory presence)
+- Grace period: 15 minutes
+- Late arrival beyond grace period: Half day deduction
+- Biometric/web punch mandatory
+
+### Leave Application Process
+1. Submit leave request via HRMS portal
+2. Manager approval required
+3. HR notification automated
+4. Minimum 48 hours for planned leave
+""",
+        "effective_from": date(2024, 1, 1),
+        "is_active": True
+    },
+    {
+        "title": "Code of Conduct",
+        "category": "General",
+        "content": """## Employee Code of Conduct
+
+### Professional Behavior
+- Treat all colleagues with respect and dignity
+- Maintain professional attire (business casual)
+- No discrimination or harassment of any kind
+- Confidentiality of company information
+
+### Work Ethics
+- Honesty and integrity in all dealings
+- Conflict of interest must be disclosed
+- No accepting gifts from vendors/clients
+- Intellectual property belongs to company
+
+### Workplace Guidelines
+- No alcohol or drugs on premises
+- Smoking only in designated areas
+- Maintain clean and organized workspace
+- Report safety hazards immediately
+
+### Digital Conduct
+- Professional communication in emails/chat
+- No sharing confidential information
+- Social media posts must not harm company reputation
+- Respect copyright and licensing
+
+### Violations
+- First offense: Written warning
+- Second offense: Final warning
+- Third offense: Termination
+- Serious violations: Immediate termination
+""",
+        "effective_from": date(2024, 1, 1),
+        "is_active": True
+    },
+    {
+        "title": "Performance Appraisal Policy",
+        "category": "Performance",
+        "content": """## Performance Appraisal Policy
+
+### Appraisal Cycle
+- Annual performance review in March
+- Mid-year review in September
+- Probation review at 3 months
+
+### Evaluation Criteria
+1. **Technical Skills** (30%)
+   - Job knowledge
+   - Quality of work
+   - Problem-solving ability
+
+2. **Productivity** (25%)
+   - Meeting deadlines
+   - Efficiency
+   - Output quality
+
+3. **Teamwork** (20%)
+   - Collaboration
+   - Communication
+   - Helping others
+
+4. **Leadership** (15%)
+   - Initiative
+   - Mentoring
+   - Decision making
+
+5. **Innovation** (10%)
+   - New ideas
+   - Process improvements
+   - Learning & development
+
+### Rating Scale
+- Outstanding: 4.5 - 5.0
+- Exceeds Expectations: 3.5 - 4.4
+- Meets Expectations: 2.5 - 3.4
+- Needs Improvement: 1.5 - 2.4
+- Unsatisfactory: Below 1.5
+
+### Compensation Review
+- Salary increment based on rating
+- Outstanding: 12-15% increment
+- Exceeds: 8-12% increment
+- Meets: 5-8% increment
+- Promotion consideration for Outstanding/Exceeds ratings
+""",
+        "effective_from": date(2024, 1, 1),
+        "is_active": True
+    },
+    {
+        "title": "Expense Reimbursement Policy",
+        "category": "Finance",
+        "content": """## Expense Reimbursement Policy
+
+### Eligible Expenses
+
+#### Travel
+- Airfare: Economy class
+- Hotel: Up to $150/night in metro cities
+- Local transport: Taxi/Uber (with receipts)
+- Meals: Up to $50/day during business travel
+
+#### Communication
+- Mobile bills: Up to $30/month (for field staff)
+- Internet: Up to $25/month (for WFH employees)
+
+#### Professional Development
+- Training courses: Up to $2000/year
+- Certifications: Full reimbursement with approval
+- Books/Subscriptions: Up to $500/year
+
+### Claim Process
+1. Submit expense report within 30 days
+2. Attach all original receipts
+3. Manager approval required
+4. Finance verification
+5. Payment within 15 days
+
+### Non-Reimbursable
+- Personal expenses
+- Alcohol
+- Entertainment
+- Traffic violations/fines
+- Lost receipts
+
+### Approval Limits
+- Up to $500: Manager approval
+- $500 - $2000: Department head approval
+- Above $2000: CFO approval
+""",
+        "effective_from": date(2024, 1, 1),
+        "is_active": True
+    }
+]
 
 def hash_password(password: str) -> str:
     """Hash password using bcrypt"""
@@ -296,13 +515,14 @@ def create_attendance_records(session: Session, employees: List[Employee]):
     print(f"✅ Created {count} attendance records")
 
 def create_sample_payrolls(session: Session, employees: List[Employee]):
-    """Create payroll records for last 3 months"""
+    """Create payroll records for last 6 months"""
     print("\nCreating payroll records...")
     
     count = 0
     current_date = date.today()
     
-    for month_offset in range(3):
+    # Generate payroll for last 6 months
+    for month_offset in range(6):
         month = current_date.month - month_offset
         year = current_date.year
         
@@ -354,13 +574,87 @@ def create_sample_payrolls(session: Session, employees: List[Employee]):
     session.commit()
     print(f"✅ Created {count} payroll records")
 
+def create_organization_tree(session: Session, departments: List[Department], employees: List[Employee]):
+    """Update organization hierarchy"""
+    print("\nSetting up organization tree...")
+    
+    # Find department heads
+    hr_dept = next((d for d in departments if d.code == "HR"), None)
+    eng_dept = next((d for d in departments if d.code == "ENG"), None)
+    prd_dept = next((d for d in departments if d.code == "PRD"), None)
+    sal_dept = next((d for d in departments if d.code == "SAL"), None)
+    
+    # Set department heads
+    if hr_dept and len(employees) > 0:
+        hr_dept.head_id = employees[0].id  # Sarah Johnson
+        session.add(hr_dept)
+    
+    if eng_dept and len(employees) > 2:
+        eng_dept.head_id = employees[2].id  # Emily Davis
+        session.add(eng_dept)
+    
+    if prd_dept and len(employees) > 3:
+        prd_dept.head_id = employees[3].id  # David Wilson
+        session.add(prd_dept)
+    
+    if sal_dept and len(employees) > 4:
+        sal_dept.head_id = employees[4].id  # Jessica Martinez
+        session.add(sal_dept)
+    
+    session.commit()
+    print("✅ Organization tree configured")
+
+def create_company_policies(session: Session):
+    """Create company policies"""
+    print("\nCreating company policies...")
+    
+    from app.models.extras import Policy
+    
+    count = 0
+    for policy_data in POLICIES_DATA:
+        policy = Policy(
+            title=policy_data["title"],
+            category=policy_data["category"],
+            content=policy_data["content"],
+            effective_from=policy_data["effective_from"],
+            is_active=policy_data["is_active"],
+            version=1
+        )
+        session.add(policy)
+        count += 1
+    
+    session.commit()
+    print(f"✅ Created {count} company policies")
+
+
 def main():
     """Main execution function"""
     print("=" * 60)
     print("🚀 RAILWAY DATABASE SEEDING STARTED")
     print("=" * 60)
     
-    session = Session(sync_engine)
+    # Use Railway PostgreSQL URL
+    database_url = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:MQZsbkIEoKEZXmdZfsjuicJeGrNqXXEO@metro.proxy.rlwy.net:14509/railway"
+    )
+    
+    print(f"\n📡 Connecting to: {database_url.split('@')[1]}")
+    
+    # Create engine for Railway database
+    engine = create_engine(database_url, echo=False)
+    
+    # Import all models to ensure they're registered
+    from app.models.user import User, Employee, Department, Location
+    from app.models.attendance import AttendanceDay, LeaveType, LeaveBalance
+    from app.models.extras import Payroll
+    
+    # Create all tables
+    print("\n🔨 Creating database tables...")
+    SQLModel.metadata.create_all(engine)
+    print("✅ Tables created")
+    
+    session = Session(engine)
     
     try:
         # Check if data already exists
@@ -383,6 +677,8 @@ def main():
         create_leave_balances(session, employees, leave_types)
         create_attendance_records(session, employees)
         create_sample_payrolls(session, employees)
+        create_organization_tree(session, departments, employees)
+        create_company_policies(session)
         
         print("\n" + "=" * 60)
         print("✅ SEEDING COMPLETED SUCCESSFULLY!")
@@ -393,6 +689,8 @@ def main():
         print(f"   Departments: {len(departments)}")
         print(f"   Locations: {len(locations)}")
         print(f"   Leave Types: {len(leave_types)}")
+        print(f"   Payroll Records: {len(employees) * 6} (6 months)")
+        print(f"   Company Policies: {len(POLICIES_DATA)}")
         print(f"\n🔑 Login Credentials:")
         print(f"   Email: sarah.johnson@company.com (HR)")
         print(f"   Email: emily.davis@company.com (Manager)")
