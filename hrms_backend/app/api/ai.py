@@ -51,8 +51,15 @@ async def get_redis():
     global redis_client
     if redis_client is None:
         try:
-            redis_client = await redis.from_url("redis://localhost:6379", encoding="utf-8", decode_responses=True)
-        except:
+            # Use REDIS_URL from settings (supports Railway Redis)
+            redis_url = settings.REDIS_URL
+            print(f"Connecting to Redis: {redis_url.split('@')[-1] if '@' in redis_url else redis_url}")
+            redis_client = await redis.from_url(redis_url, encoding="utf-8", decode_responses=True)
+            # Test connection
+            await redis_client.ping()
+            print("✅ Redis connected successfully")
+        except Exception as e:
+            print(f"⚠️ Redis connection failed: {e}")
             return None
     return redis_client
 
