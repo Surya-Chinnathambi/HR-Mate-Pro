@@ -111,7 +111,7 @@ export const api = {
         current: () => apiClient.get('/employees/current'),
         getById: (id: number) => apiClient.get(`/employees/${id}`),
         getAll: (params?: { skip?: number; limit?: number; department?: string; role?: string }) =>
-            apiClient.get('/employees/', { params }),
+            apiClient.get('/employees/all/list', { params }),
         create: (data: any) => apiClient.post('/employees/', data),
         update: (id: number, data: any) => apiClient.put(`/employees/${id}`, data),
         delete: (id: number) => apiClient.delete(`/employees/${id}`),
