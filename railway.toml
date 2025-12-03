@@ -1,9 +1,9 @@
-# This config is for the BACKEND service only
+# Railway Configuration for HRMS Backend
+# This tells Railway to build the backend from hrms_backend folder
 
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
-watchPatterns = ["hrms_backend/**"]
+dockerfilePath = "hrms_backend/Dockerfile"
 
 [deploy]
 startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4"
