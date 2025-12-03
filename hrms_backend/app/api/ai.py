@@ -902,6 +902,9 @@ TRAINING WORKFLOW:
 
 Be concise, friendly, and use emojis appropriately. Always provide clear next steps."""
 
+        # Escape curly braces in the system prompt to prevent format errors
+        system_prompt = system_prompt.replace('{', '{{').replace('}', '}}')
+        
         # Format the system prompt with user-specific variables
         system_prompt = system_prompt.format(
             current_user.email,
