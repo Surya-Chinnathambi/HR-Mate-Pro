@@ -216,6 +216,8 @@ export function ChatHistorySidebar({ onConversationSelect, onNewChat }: ChatHist
                                                 if (e.key === 'Escape') cancelEdit();
                                             }}
                                             className="flex-1 px-2 py-1 bg-gray-700 rounded text-sm border border-gray-600 focus:outline-none focus:border-blue-500"
+                                            placeholder="Enter conversation title"
+                                            aria-label="Rename conversation"
                                             autoFocus
                                         />
                                         <button

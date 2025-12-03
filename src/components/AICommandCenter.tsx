@@ -305,13 +305,13 @@ export function AICommandCenter({ onClose, employee }: AICommandCenterProps) {
               </div>
             </div>
             <div className='flex items-center gap-2'>
-              <button onClick={() => setShowHistory(!showHistory)} className='p-2 hover:bg-white/10 rounded-lg'>
+              <button onClick={() => setShowHistory(!showHistory)} className='p-2 hover:bg-white/10 rounded-lg' aria-label="Toggle chat history">
                 <History className='w-5 h-5 text-white' />
               </button>
-              <button onClick={handleClear} className='p-2 hover:bg-white/10 rounded-lg'>
+              <button onClick={handleClear} className='p-2 hover:bg-white/10 rounded-lg' aria-label="Clear chat history">
                 <Trash2 className='w-5 h-5 text-white' />
               </button>
-              <button onClick={onClose} className='p-2 hover:bg-white/10 rounded-lg'>
+              <button onClick={onClose} className='p-2 hover:bg-white/10 rounded-lg' aria-label="Close AI chat">
                 <X className='w-5 h-5 text-white' />
               </button>
             </div>
