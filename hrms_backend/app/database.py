@@ -14,7 +14,7 @@ if sys.platform.startswith("win"):
     except Exception as e:
         print(f"[Init] Failed to set WindowsSelectorEventLoopPolicy: {e}")
 
-# Sync engine for migrations
+# Sync engine for migrations (uses psycopg2)
 sync_engine = create_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
@@ -23,9 +23,9 @@ sync_engine = create_engine(
     max_overflow=20
 )
 
-# Async engine for API
+# Async engine for API (uses asyncpg)
 async_engine = create_async_engine(
-    settings.DATABASE_URL.replace("postgresql://", "postgresql+psycopg://"),
+    settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"),
     echo=settings.DEBUG,
     future=True,
     pool_pre_ping=True,

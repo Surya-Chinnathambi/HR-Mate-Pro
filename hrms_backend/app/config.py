@@ -1,7 +1,8 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
-from pydantic import Field
+from typing import Optional, List
+from pydantic import Field, field_validator
 import os
+import json
 from pathlib import Path
 
 # Get the base directory (hrms_backend folder)
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
     AZURE_OPENAI_API_VERSION: str = "2024-02-15-preview"
     
     # CORS
-    ALLOWED_ORIGINS: list = [
+    ALLOWED_ORIGINS: List[str] = [
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
@@ -50,6 +51,19 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
     ]
+    
+    @field_validator('ALLOWED_ORIGINS', mode='before')
+    @classmethod
+    def parse_allowed_origins(cls, v):
+        """Parse ALLOWED_ORIGINS from JSON string or list"""
+        if isinstance(v, str):
+            # If it's a JSON string, parse it
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError:
+                # If not valid JSON, split by comma
+                return [origin.strip() for origin in v.split(',')]
+        return v
     
     # Pagination
     DEFAULT_PAGE_SIZE: int = 50

@@ -1,0 +1,92 @@
+RAILWAY DEPLOYMENT TROUBLESHOOTING CHECKLIST
+=============================================
+
+CURRENT STATUS: Backend returning 502 - Container crashes on startup
+REASON: Missing environment variables in Railway
+
+IMMEDIATE ACTIONS NEEDED:
+-------------------------
+
+1. GO TO RAILWAY DASHBOARD
+   https://railway.app → Your Project → impartial-cooperation-production service
+
+2. CLICK "VARIABLES" TAB
+
+3. CHECK IF THESE VARIABLES EXIST:
+   ☐ DATABASE_URL
+   ☐ REDIS_URL
+   ☐ SECRET_KEY
+   ☐ AZURE_OPENAI_ENDPOINT
+   ☐ AZURE_OPENAI_KEY
+   ☐ ALLOWED_ORIGINS
+
+4. IF MISSING, ADD THEM ONE BY ONE:
+
+   Click "New Variable" for each:
+
+   Variable 1:
+   Name: DATABASE_URL
+   Value: postgresql://postgres:MQZsbkIEoKEZXmdZfsjuicJeGrNqXXEO@metro.proxy.rlwy.net:14509/railway
+
+   Variable 2:
+   Name: REDIS_URL
+   Value: redis://default:oCxieWzaLnLKOUYLwvpZptewSfHJqhAr@turntable.proxy.rlwy.net:45890
+
+   Variable 3:
+   Name: SECRET_KEY
+   Value: gQ8HY-ei8QbJ-9584UJykwI__LJKKgDXqnO4Whxe07Q
+
+   Variable 4:
+   Name: AZURE_OPENAI_ENDPOINT
+   Value: https://litellm.dev.asoclab.dev/v1
+
+   Variable 5:
+   Name: AZURE_OPENAI_KEY
+   Value: sk-cX6455aOorGC07hIUVf49g
+
+   Variable 6:
+   Name: AZURE_OPENAI_DEPLOYMENT
+   Value: azure/gpt-5-chat
+
+   Variable 7:
+   Name: ALGORITHM
+   Value: HS256
+
+   Variable 8:
+   Name: ALLOWED_ORIGINS
+   Value: ["https://impartial-cooperation-production.up.railway.app","https://*.netlify.app","http://localhost:5173"]
+
+   Variable 9:
+   Name: DEBUG
+   Value: False
+
+5. AFTER ADDING ALL VARIABLES:
+   - Railway will automatically redeploy
+   - Wait 2-3 minutes for deployment to complete
+
+6. VERIFY DEPLOYMENT:
+   - Go to "Deployments" tab
+   - Check latest deployment status = "Success"
+   - Check logs for "Uvicorn running on http://0.0.0.0:XXXX"
+
+7. TEST HEALTH ENDPOINT:
+   Run: curl https://impartial-cooperation-production.up.railway.app/health
+   Expected: {"status":"healthy","app":"HRMS Backend","version":"1.0.0"}
+
+=============================================
+ALTERNATIVE: Use Railway CLI to set variables quickly
+=============================================
+
+If you have Railway CLI installed:
+
+railway variables set DATABASE_URL="postgresql://postgres:MQZsbkIEoKEZXmdZfsjuicJeGrNqXXEO@metro.proxy.rlwy.net:14509/railway"
+railway variables set REDIS_URL="redis://default:oCxieWzaLnLKOUYLwvpZptewSfHJqhAr@turntable.proxy.rlwy.net:45890"
+railway variables set SECRET_KEY="gQ8HY-ei8QbJ-9584UJykwI__LJKKgDXqnO4Whxe07Q"
+railway variables set AZURE_OPENAI_ENDPOINT="https://litellm.dev.asoclab.dev/v1"
+railway variables set AZURE_OPENAI_KEY="sk-cX6455aOorGC07hIUVf49g"
+railway variables set AZURE_OPENAI_DEPLOYMENT="azure/gpt-5-chat"
+railway variables set ALGORITHM="HS256"
+railway variables set ALLOWED_ORIGINS='["https://impartial-cooperation-production.up.railway.app","https://*.netlify.app","http://localhost:5173"]'
+railway variables set DEBUG="False"
+
+=============================================

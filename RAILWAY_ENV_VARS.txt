@@ -1,0 +1,54 @@
+=================================================
+RAILWAY ENVIRONMENT VARIABLES - COPY TO RAILWAY
+=================================================
+
+Go to your Railway service → Variables tab → Add these:
+
+DATABASE_URL=postgresql://postgres:MQZsbkIEoKEZXmdZfsjuicJeGrNqXXEO@metro.proxy.rlwy.net:14509/railway
+
+REDIS_URL=redis://default:oCxieWzaLnLKOUYLwvpZptewSfHJqhAr@turntable.proxy.rlwy.net:45890
+
+APP_NAME=HRMS Backend
+
+APP_VERSION=1.0.0
+
+DEBUG=False
+
+HOST=0.0.0.0
+
+PORT=8000
+
+SECRET_KEY=your-super-secret-key-change-this-in-production-min-32-chars-CHANGE-THIS
+
+ALGORITHM=HS256
+
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+REFRESH_TOKEN_EXPIRE_DAYS=7
+
+AZURE_OPENAI_ENDPOINT=https://litellm.dev.asoclab.dev/v1
+
+AZURE_OPENAI_KEY=sk-cX6455aOorGC07hIUVf49g
+
+AZURE_OPENAI_DEPLOYMENT=azure/gpt-5-chat
+
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+
+ALLOWED_ORIGINS=["https://impartial-cooperation-production.up.railway.app","https://*.netlify.app","http://localhost:5173"]
+
+DEFAULT_PAGE_SIZE=50
+
+MAX_PAGE_SIZE=100
+
+=================================================
+IMPORTANT NOTES:
+=================================================
+1. Change SECRET_KEY to a secure random string (at least 32 characters)
+2. Set DEBUG=False for production
+3. Railway will automatically inject PORT variable - don't worry if it changes
+4. After adding all variables, click "Redeploy" in Railway
+
+=================================================
+TO GENERATE A SECURE SECRET_KEY (run in Python):
+=================================================
+python -c "import secrets; print(secrets.token_urlsafe(32))"

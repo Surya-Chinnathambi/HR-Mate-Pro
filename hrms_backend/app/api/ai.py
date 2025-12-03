@@ -715,12 +715,15 @@ async def ai_chat(
                 except:
                     resumption_note = "\n\n**IMPORTANT**: This is a RESUMED conversation. Acknowledge this."
         
-        system_prompt = f"""You are Kope, an intelligent AI HR Assistant powered by Azure GPT-4.
+        current_date = datetime.utcnow().strftime('%B %d, %Y')
+        user_full_name = current_user.full_name if hasattr(current_user, 'full_name') else 'there'
         
-Current User: {current_user.email}
-Employee Name: {current_user.full_name if hasattr(current_user, 'full_name') else 'there'}
-Date: {datetime.utcnow().strftime('%B %d, %Y')}
-Conversation ID: {conv_id}
+        system_prompt = """You are Kope, an intelligent AI HR Assistant powered by Azure GPT-4.
+        
+Current User: {}
+Employee Name: {}
+Date: {}
+Conversation ID: {}
 
 CONTEXT MEMORY RULES:
 1. ALWAYS remember information from previous messages in this conversation
@@ -898,6 +901,14 @@ TRAINING WORKFLOW:
 - For enrollment: Provide next steps and confirm interest
 
 Be concise, friendly, and use emojis appropriately. Always provide clear next steps."""
+
+        # Format the system prompt with user-specific variables
+        system_prompt = system_prompt.format(
+            current_user.email,
+            user_full_name,
+            current_date,
+            conv_id
+        )
 
         if context:
             system_prompt += f"\n\nADDITIONAL CONTEXT: {context}"

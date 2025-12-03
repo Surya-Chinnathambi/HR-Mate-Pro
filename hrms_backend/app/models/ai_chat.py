@@ -4,7 +4,7 @@ SQLModel models for AI chatbot conversation tracking
 from typing import Optional, Dict, Any
 from datetime import datetime
 from sqlmodel import SQLModel, Field, Column, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, TEXT
 import uuid
 
 
@@ -16,7 +16,7 @@ class ConversationHistory(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", nullable=False, index=True)
     role: str = Field(max_length=20, nullable=False)  # employee, manager, hr_admin, super_admin
     message_type: str = Field(max_length=20, nullable=False)  # user_message, bot_response, system_event
-    message_text: str = Field(sa_column=Column("message_text", nullable=False))
+    message_text: str = Field(sa_column=Column("message_text", TEXT, nullable=False))
     intent: Optional[str] = Field(default=None, max_length=100)
     entities: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     function_called: Optional[str] = Field(default=None, max_length=100)

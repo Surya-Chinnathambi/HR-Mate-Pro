@@ -42,7 +42,7 @@ class ChatConversation(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    messages: List["ChatMessage"] = Relationship(back_populates="conversation", cascade_delete=True)
+    messages: List["ChatMessage"] = Relationship(back_populates="conversation")
     # Note: employee relationship removed to avoid circular imports
     # Foreign key still exists in database for referential integrity
 
@@ -85,5 +85,5 @@ class Employee(SQLModel, table=True):
     # ... existing fields ...
     
     # Chat history
-    chat_conversations: List["ChatConversation"] = Relationship(back_populates="employee", cascade_delete=True)
+    chat_conversations: List["ChatConversation"] = Relationship(back_populates="employee")
 """
